@@ -48,6 +48,7 @@
 	let options = $derived(data ? filterOptions(data) : { milestones: [], assignees: [] });
 
 	let loadId = 0;
+	let rebuildId = 0;
 
 	$effect(() => {
 		const targetScope = scope;
@@ -70,7 +71,7 @@
 			});
 			if (id !== loadId) return;
 			data = result;
-			rebuild();
+			await rebuild();
 		} catch (err) {
 			if (id !== loadId) return;
 			if (err instanceof GithubError) {
@@ -84,9 +85,11 @@
 		}
 	}
 
-	function rebuild(): void {
+	async function rebuild(): Promise<void> {
 		if (!data) return;
-		const model = buildBoard(data, { milestone, assignee, hasOpenPR });
+		const id = ++rebuildId;
+		const model = await buildBoard(data, { milestone, assignee, hasOpenPR });
+		if (id !== rebuildId) return;
 		nodes = model.nodes;
 		edges = model.edges;
 		counts = model.counts;
@@ -139,7 +142,7 @@
 			class="border border-neutral-300 bg-white px-2 py-1 text-xs"
 			aria-label="Milestone filter"
 			bind:value={milestone}
-			onchange={rebuild}
+			onchange={() => void rebuild()}
 		>
 			<option value="all">All milestones</option>
 			{#each options.milestones as option (option.value)}
@@ -151,7 +154,7 @@
 			class="border border-neutral-300 bg-white px-2 py-1 text-xs"
 			aria-label="Assignee filter"
 			bind:value={assignee}
-			onchange={rebuild}
+			onchange={() => void rebuild()}
 		>
 			<option value="all">All assignees</option>
 			{#each options.assignees as option (option.value)}
@@ -160,14 +163,14 @@
 		</select>
 
 		<label class="flex items-center gap-1.5 text-xs text-neutral-700">
-			<input type="checkbox" bind:checked={hasOpenPR} onchange={rebuild} />
+			<input type="checkbox" bind:checked={hasOpenPR} onchange={() => void rebuild()} />
 			Has open PR
 		</label>
 
 		<button
 			type="button"
 			class="border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"
-			onclick={rebuild}
+			onclick={() => void rebuild()}
 		>
 			Auto-Layout
 		</button>
@@ -197,6 +200,7 @@
 					bind:this={canvas}
 					bind:nodes
 					bind:edges
+					highlightNodeId={selectedNumber}
 					onissueclick={handleIssueClick}
 					onpaneclick={() => (selectedNumber = null)}
 				/>

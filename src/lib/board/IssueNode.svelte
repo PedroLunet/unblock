@@ -33,7 +33,7 @@
 </script>
 
 <div
-	class="relative flex h-[170px] w-[240px] flex-col gap-1 overflow-hidden rounded-sm border bg-white p-2.5 text-neutral-900 {selected
+	class="relative flex h-full w-full flex-col gap-1 overflow-hidden rounded-sm border bg-white p-2.5 text-neutral-900 {selected
 		? 'border-neutral-900 ring-1 ring-neutral-900'
 		: 'border-neutral-300'}"
 >
@@ -41,8 +41,9 @@
 		<span class="absolute inset-y-0 left-0 w-1 bg-red-700" aria-hidden="true"></span>
 	{/if}
 
-	<Handle type="target" position={Position.Top} style="opacity: 0;" />
-	<Handle type="source" position={Position.Bottom} style="opacity: 0;" />
+	<!-- Svelte Flow drops edges whose nodes have no handle bounds; these are invisible and unused by the routed geometry. -->
+	<Handle type="target" position={Position.Top} style="opacity: 0; pointer-events: none;" />
+	<Handle type="source" position={Position.Bottom} style="opacity: 0; pointer-events: none;" />
 
 	{#if data.openBlockers > 0}
 		{@const total = data.openBlockers + data.resolvedBlockers}
@@ -54,7 +55,7 @@
 		</span>
 	{/if}
 
-	<div class="flex items-center gap-1.5 {data.openBlockers > 0 ? 'pr-7' : ''}">
+	<div class="flex h-[18px] items-center gap-1.5 {data.openBlockers > 0 ? 'pr-7' : ''}">
 		<span class="font-mono text-xs text-neutral-500">#{issue.number}</span>
 		<span
 			class="border px-1 text-[10px] uppercase {issue.state === 'open'
@@ -85,10 +86,12 @@
 		{/if}
 	</div>
 
-	<p class="line-clamp-2 text-[13px] leading-snug font-medium" title={issue.title}>{issue.title}</p>
+	<p class="line-clamp-3 text-[13px] leading-[17px] font-medium" title={issue.title}>
+		{issue.title}
+	</p>
 
 	{#if labels.length > 0}
-		<div class="flex flex-wrap gap-1 overflow-hidden">
+		<div class="flex h-[18px] flex-wrap gap-1 overflow-hidden">
 			{#each labels as label (label.name)}
 				<span class="border border-neutral-300 px-1 text-[10px] text-neutral-600">
 					{label.name}
@@ -101,17 +104,17 @@
 	{/if}
 
 	{#if issue.milestone}
-		<p class="truncate text-[11px] text-neutral-500" title={issue.milestone.title}>
+		<p class="truncate text-[11px] leading-[15px] text-neutral-500" title={issue.milestone.title}>
 			{issue.milestone.title}
 		</p>
 	{/if}
 
-	<p class="truncate text-[11px] text-neutral-500">
+	<p class="h-[15px] text-[11px] leading-[15px] text-neutral-500">
 		reactions {issue.reactions ? issue.reactions.total : '?'} · updated {daysAgo}d ago
 	</p>
 
 	{#if data.resolvedBlockers > 0 || data.prRefs.length > 0 || issue.linkedPRs.length > 0}
-		<div class="flex flex-wrap gap-1 overflow-hidden">
+		<div class="flex h-[18px] flex-wrap items-center gap-1 overflow-hidden">
 			{#if data.resolvedBlockers > 0}
 				<span class="border border-neutral-300 px-1 text-[10px] text-neutral-500">
 					{data.resolvedBlockers}

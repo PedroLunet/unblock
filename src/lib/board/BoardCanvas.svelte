@@ -4,26 +4,58 @@
 		Background,
 		BackgroundVariant,
 		Controls,
+		MarkerType,
 		SvelteFlow,
 		useSvelteFlow
 	} from '@xyflow/svelte';
 	import type { Edge } from '@xyflow/svelte';
 	import ChainFrame from './ChainFrame.svelte';
 	import IssueNode from './IssueNode.svelte';
+	import OrthogonalEdge from './OrthogonalEdge.svelte';
 	import type { BoardNode } from './graph';
 
 	interface Props {
 		nodes: BoardNode[];
 		edges: Edge[];
+		highlightNodeId?: number | null;
 		onissueclick: (issueNumber: number) => void;
 		onpaneclick: () => void;
 	}
 
-	let { nodes = $bindable(), edges = $bindable(), onissueclick, onpaneclick }: Props = $props();
+	let {
+		nodes = $bindable(),
+		edges = $bindable(),
+		highlightNodeId = null,
+		onissueclick,
+		onpaneclick
+	}: Props = $props();
 
 	const nodeTypes = { issue: IssueNode, frame: ChainFrame };
+	const edgeTypes = { orthogonal: OrthogonalEdge };
 
 	const flow = useSvelteFlow();
+
+	let displayEdges = $derived.by(() => {
+		const highlighted = highlightNodeId;
+		if (highlighted === null) return edges;
+		const nodeId = `issue-${highlighted}`;
+		return edges.map((edge): Edge => {
+			const connected = edge.source === nodeId || edge.target === nodeId;
+			if (connected) {
+				return {
+					...edge,
+					style: 'stroke: #991b1b; stroke-width: 2.5;',
+					markerEnd: {
+						type: MarkerType.ArrowClosed,
+						width: 16,
+						height: 16,
+						color: '#991b1b'
+					}
+				};
+			}
+			return { ...edge, style: `${edge.style ?? ''} opacity: 0.25;` };
+		});
+	});
 
 	export function fitView(): void {
 		requestAnimationFrame(() => {
@@ -42,8 +74,9 @@
 <div class="h-full w-full">
 	<SvelteFlow
 		bind:nodes
-		bind:edges
+		edges={displayEdges}
 		{nodeTypes}
+		{edgeTypes}
 		minZoom={0.1}
 		maxZoom={1.5}
 		nodesConnectable={false}

@@ -1,20 +1,29 @@
-import dagre from '@dagrejs/dagre';
+import type { ElkNode } from 'elkjs/lib/elk-api';
 import { MarkerType } from '@xyflow/svelte';
 import type { Edge, Node } from '@xyflow/svelte';
 import { resolveRef } from '#lib/github';
 import type { DepEdge, IssueRecord, RepoData } from '#lib/github';
 
-/** Fixed card geometry — the node CSS must match these sizes exactly so dagre positions stay truthful. */
+/** Fixed card width — node CSS must match. Heights are estimated per card (see estimateCardHeight). */
 export const CARD_WIDTH = 240;
-export const CARD_HEIGHT = 170;
 
 const FRAME_HEADER = 30;
 const FRAME_PAD = 20;
 const CHAIN_GAP = 48;
-const CHAIN_NODESEP = 40;
-const CHAIN_RANKSEP = 72;
 const INDEP_GAP = 24;
 const INDEP_MAX_COLS = 6;
+
+/** Card geometry constants shared with IssueNode.svelte — keep in sync. */
+const CARD_PAD = 20;
+const ROW_GAP = 4;
+const HEADER_H = 18;
+const LABELS_H = 18;
+const MILESTONE_H = 15;
+const HEAT_H = 15;
+const BADGES_H = 18;
+const TITLE_LINE_H = 17;
+const TITLE_MAX_LINES = 3;
+const TITLE_CHARS_PER_LINE = 30;
 
 export const NO_MILESTONE = '__none__';
 export const UNASSIGNED = '__unassigned__';
@@ -46,6 +55,11 @@ export interface FrameFlowData {
 export type IssueNode = Node<IssueFlowData, 'issue'>;
 export type FrameNode = Node<FrameFlowData, 'frame'>;
 export type BoardNode = IssueNode | FrameNode;
+
+export interface OrthogonalEdgeData {
+	points: { x: number; y: number }[];
+	[key: string]: unknown;
+}
 
 export interface BoardCounts {
 	issues: number;
@@ -105,6 +119,37 @@ function passesFilters(issue: IssueRecord, filters: BoardFilters): boolean {
 	return true;
 }
 
+function hasBadgeRow(flow: Pick<IssueFlowData, 'resolvedBlockers' | 'prRefs' | 'issue'>): boolean {
+	return flow.resolvedBlockers > 0 || flow.prRefs.length > 0 || flow.issue.linkedPRs.length > 0;
+}
+
+/**
+ * Estimated card height: mirrors IssueNode's fixed row heights so ELK positions
+ * match the rendered card and no dead space or clipping appears.
+ */
+export function estimateCardHeight(flow: IssueFlowData): number {
+	const titleLines = Math.min(
+		TITLE_MAX_LINES,
+		Math.max(1, Math.ceil(flow.issue.title.length / TITLE_CHARS_PER_LINE))
+	);
+	let contentHeight = HEADER_H + titleLines * TITLE_LINE_H + HEAT_H;
+	let rows = 3;
+	if (flow.issue.labels.length > 0) {
+		contentHeight += LABELS_H;
+		rows++;
+	}
+	if (flow.issue.milestone) {
+		contentHeight += MILESTONE_H;
+		rows++;
+	}
+	if (hasBadgeRow(flow)) {
+		contentHeight += BADGES_H;
+		rows++;
+	}
+	const estimated = CARD_PAD + contentHeight + (rows - 1) * ROW_GAP;
+	return Math.max(132, Math.min(210, estimated));
+}
+
 /** Union-find over visible dependency edges. */
 function connectedComponents(ids: number[], edges: DepEdge[]): number[][] {
 	const parent = new Map<number, number>();
@@ -148,60 +193,101 @@ function connectedComponents(ids: number[], edges: DepEdge[]): number[][] {
 		.sort((a, b) => b.length - a.length || a[0] - b[0]);
 }
 
-function layoutChain(
+interface ComponentLayout {
+	/** Node top-left positions relative to the component origin. */
+	positions: Map<number, { x: number; y: number }>;
+	/** Edge polylines relative to the component origin, keyed `from->to`. */
+	edgePoints: Map<string, { x: number; y: number }[]>;
+	width: number;
+	height: number;
+}
+
+const ELK_LAYOUT_OPTIONS: Record<string, string> = {
+	'elk.algorithm': 'layered',
+	'elk.direction': 'DOWN',
+	'elk.edgeRouting': 'ORTHOGONAL',
+	'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+	'elk.spacing.nodeNode': '40',
+	'elk.spacing.edgeNode': '24',
+	'elk.spacing.edgeEdge': '14',
+	'elk.layered.spacing.nodeNodeBetweenLayers': '56',
+	'elk.layered.spacing.edgeNodeBetweenLayers': '20',
+	'elk.layered.spacing.edgeEdgeBetweenLayers': '14',
+	'elk.mergeEdges': 'false'
+};
+
+/**
+ * ELK is heavy (~1.4 MB min) — load it lazily so the board shell paints while
+ * the GitHub fetch and this chunk download in parallel.
+ */
+type ElkInstance = { layout: (graph: ElkNode) => Promise<ElkNode> };
+let elkInstance: ElkInstance | null = null;
+async function getElk(): Promise<ElkInstance> {
+	if (!elkInstance) {
+		const mod = await import('elkjs/lib/elk.bundled.js');
+		elkInstance = new mod.default();
+	}
+	return elkInstance;
+}
+
+async function layoutComponentElk(
 	members: number[],
 	edges: DepEdge[],
-	issuesByNumber: Map<number, IssueRecord>
-): Map<number, { x: number; y: number }> {
-	const graph = new dagre.graphlib.Graph();
-	graph.setGraph({
-		rankdir: 'TB',
-		nodesep: CHAIN_NODESEP,
-		ranksep: CHAIN_RANKSEP,
-		marginx: 0,
-		marginy: 0
-	});
-	graph.setDefaultEdgeLabel(() => ({}));
-	for (const n of members) {
-		graph.setNode(String(n), { width: CARD_WIDTH, height: CARD_HEIGHT });
+	sizes: Map<number, { width: number; height: number }>
+): Promise<ComponentLayout> {
+	const memberSet = new Set(members);
+	const componentEdges = edges.filter((e) => memberSet.has(e.from) && memberSet.has(e.to));
+	const graph: ElkNode = {
+		id: 'root',
+		layoutOptions: ELK_LAYOUT_OPTIONS,
+		children: members.flatMap((n) => {
+			const size = sizes.get(n);
+			return size ? [{ id: `issue-${n}`, width: size.width, height: size.height }] : [];
+		}),
+		edges: componentEdges.map((e) => ({
+			id: `edge-${e.from}-${e.to}`,
+			sources: [`issue-${e.from}`],
+			targets: [`issue-${e.to}`]
+		}))
+	};
+	const elk = await getElk();
+	const laid = await elk.layout(graph);
+	const positions = new Map<number, { x: number; y: number }>();
+	let maxX = 0;
+	let maxY = 0;
+	for (const child of laid.children ?? []) {
+		const n = Number(child.id.replace('issue-', ''));
+		if (!Number.isFinite(n)) continue;
+		const x = child.x ?? 0;
+		const y = child.y ?? 0;
+		positions.set(n, { x, y });
+		maxX = Math.max(maxX, x + (child.width ?? CARD_WIDTH));
+		maxY = Math.max(maxY, y + (child.height ?? 0));
 	}
-	for (const edge of edges) {
-		if (members.includes(edge.from) && members.includes(edge.to)) {
-			graph.setEdge(String(edge.from), String(edge.to));
+	const edgePoints = new Map<string, { x: number; y: number }[]>();
+	for (const edge of laid.edges ?? []) {
+		const points: { x: number; y: number }[] = [];
+		for (const section of edge.sections ?? []) {
+			points.push({ x: section.startPoint.x, y: section.startPoint.y });
+			for (const bend of section.bendPoints ?? []) points.push({ x: bend.x, y: bend.y });
+			points.push({ x: section.endPoint.x, y: section.endPoint.y });
+		}
+		if (points.length >= 2) {
+			const key = edge.id.replace(/^edge-/, '').replace('-', '->');
+			edgePoints.set(key, points);
 		}
 	}
-	dagre.layout(graph);
-
-	let minX = Infinity;
-	let minY = Infinity;
-	for (const n of members) {
-		const pos = graph.node(String(n)) as { x: number; y: number } | undefined;
-		if (!pos || !issuesByNumber.has(n)) continue;
-		minX = Math.min(minX, pos.x - CARD_WIDTH / 2);
-		minY = Math.min(minY, pos.y - CARD_HEIGHT / 2);
-	}
-	if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
-		minX = 0;
-		minY = 0;
-	}
-	const positions = new Map<number, { x: number; y: number }>();
-	for (const n of members) {
-		const pos = graph.node(String(n)) as { x: number; y: number } | undefined;
-		if (!pos) continue;
-		positions.set(n, { x: pos.x - CARD_WIDTH / 2 - minX, y: pos.y - CARD_HEIGHT / 2 - minY });
-	}
-	return positions;
+	return { positions, edgePoints, width: maxX, height: maxY };
 }
 
 /**
  * Build Svelte Flow nodes and edges for the current data + view filters.
- * Dependency chains are dagre-laid-out top-to-bottom and wrapped in labeled
- * frame nodes; singleton issues are packed into one "Independent" frame.
+ * Each dependency chain is laid out with ELK (layered, orthogonal edge routing)
+ * and wrapped in a labeled frame; singletons are packed into one "Independent" frame.
  */
-export function buildBoard(data: RepoData, filters: BoardFilters): BoardModel {
+export async function buildBoard(data: RepoData, filters: BoardFilters): Promise<BoardModel> {
 	const visible = data.issues.filter((issue) => passesFilters(issue, filters));
 	const visibleSet = new Set(visible.map((issue) => issue.number));
-	const issuesByNumber = new Map(visible.map((issue) => [issue.number, issue]));
 	const boardEdges = data.edges.filter(
 		(edge) => visibleSet.has(edge.from) && visibleSet.has(edge.to)
 	);
@@ -232,102 +318,124 @@ export function buildBoard(data: RepoData, filters: BoardFilters): BoardModel {
 		visible.map((issue) => issue.number),
 		boardEdges
 	);
-	// Precompute card data so edges can also tell whether they point into a blocked issue.
 	const dataByNumber = new Map<number, IssueFlowData>();
-	for (const issue of visible) dataByNumber.set(issue.number, issueData(issue));
+	const sizes = new Map<number, { width: number; height: number }>();
+	for (const issue of visible) {
+		const flowData = issueData(issue);
+		dataByNumber.set(issue.number, flowData);
+		sizes.set(issue.number, { width: CARD_WIDTH, height: estimateCardHeight(flowData) });
+	}
 	const chains = components.filter((group) => group.length > 1);
 	const singles = components.filter((group) => group.length === 1).map((group) => group[0]);
 
 	const nodes: BoardNode[] = [];
+	const edges: Edge[] = [];
 	let yCursor = 0;
 	let chainIndex = 0;
 
 	for (const chain of chains) {
-		const positions = layoutChain(chain, boardEdges, issuesByNumber);
-		let maxX = 0;
-		let maxY = 0;
-		for (const pos of positions.values()) {
-			maxX = Math.max(maxX, pos.x + CARD_WIDTH);
-			maxY = Math.max(maxY, pos.y + CARD_HEIGHT);
-		}
+		const component = await layoutComponentElk(chain, boardEdges, sizes);
 		const frameId = `chain-${chainIndex}`;
+		const framePos = { x: 0, y: yCursor };
+		const frameWidth = component.width + FRAME_PAD * 2;
+		const frameHeight = component.height + FRAME_PAD * 2 + FRAME_HEADER;
 		nodes.push({
 			id: frameId,
 			type: 'frame',
-			position: { x: 0, y: yCursor },
-			style: `width:${maxX + FRAME_PAD * 2}px;height:${maxY + FRAME_PAD * 2 + FRAME_HEADER}px`,
+			position: framePos,
+			width: frameWidth,
+			height: frameHeight,
+			style: `width:${frameWidth}px;height:${frameHeight}px`,
 			data: { label: `Chain · ${chain.length} issues`, count: chain.length },
 			draggable: true,
 			selectable: false
 		});
 		for (const n of chain) {
-			const issue = issuesByNumber.get(n);
-			const pos = positions.get(n);
 			const flowData = dataByNumber.get(n);
-			if (!issue || !pos || !flowData) continue;
+			const pos = component.positions.get(n);
+			const size = sizes.get(n);
+			if (!flowData || !pos || !size) continue;
 			nodes.push({
 				id: `issue-${n}`,
 				type: 'issue',
 				parentId: frameId,
 				extent: 'parent',
 				position: { x: pos.x + FRAME_PAD, y: pos.y + FRAME_PAD + FRAME_HEADER },
+				width: size.width,
+				height: size.height,
+				style: `width:${size.width}px;height:${size.height}px`,
 				data: flowData
 			});
 		}
-		yCursor += maxY + FRAME_PAD * 2 + FRAME_HEADER + CHAIN_GAP;
+		for (const edge of boardEdges) {
+			if (!chain.includes(edge.from) || !chain.includes(edge.to)) continue;
+			const points = component.edgePoints.get(`${edge.from}->${edge.to}`);
+			if (!points) continue;
+			const originX = framePos.x + FRAME_PAD;
+			const originY = framePos.y + FRAME_HEADER + FRAME_PAD;
+			const blocked = dataByNumber.get(edge.to);
+			const blocking = !!blocked && blocked.issue.state === 'open' && blocked.openBlockers > 0;
+			const color = blocking ? '#ef4444' : '#a3a3a3';
+			edges.push({
+				id: `edge-${edge.from}-${edge.to}`,
+				source: `issue-${edge.from}`,
+				target: `issue-${edge.to}`,
+				type: 'orthogonal',
+				data: { points: points.map((p) => ({ x: p.x + originX, y: p.y + originY })) },
+				markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color },
+				style: `stroke: ${color}; stroke-width: 1.5;`
+			});
+		}
+		yCursor += frameHeight + CHAIN_GAP;
 		chainIndex++;
 	}
 
 	if (singles.length > 0) {
 		const cols = Math.min(INDEP_MAX_COLS, Math.max(2, Math.ceil(Math.sqrt(singles.length))));
-		const rows = Math.ceil(singles.length / cols);
+		const rows: number[][] = [];
+		for (let i = 0; i < singles.length; i += cols) rows.push(singles.slice(i, i + cols));
+		const rowHeights = rows.map((row) => Math.max(...row.map((n) => sizes.get(n)?.height ?? 0)));
+		const contentWidth = cols * CARD_WIDTH + (cols - 1) * INDEP_GAP;
+		const contentHeight = rowHeights.reduce((sum, h) => sum + h, 0) + (rows.length - 1) * INDEP_GAP;
+		const frameWidth = contentWidth + FRAME_PAD * 2;
+		const frameHeight = contentHeight + FRAME_PAD * 2 + FRAME_HEADER;
+		const framePos = { x: 0, y: yCursor };
 		const frameId = 'chain-independent';
-		const frameWidth = cols * CARD_WIDTH + (cols - 1) * INDEP_GAP + FRAME_PAD * 2;
-		const frameHeight = rows * CARD_HEIGHT + (rows - 1) * INDEP_GAP + FRAME_PAD * 2 + FRAME_HEADER;
 		nodes.push({
 			id: frameId,
 			type: 'frame',
-			position: { x: 0, y: yCursor },
+			position: framePos,
+			width: frameWidth,
+			height: frameHeight,
 			style: `width:${frameWidth}px;height:${frameHeight}px`,
 			data: { label: `Independent · ${singles.length} issues`, count: singles.length },
 			draggable: true,
 			selectable: false
 		});
-		singles.forEach((n, i) => {
-			const flowData = dataByNumber.get(n);
-			if (!flowData) return;
-			const col = i % cols;
-			const row = Math.floor(i / cols);
-			nodes.push({
-				id: `issue-${n}`,
-				type: 'issue',
-				parentId: frameId,
-				extent: 'parent',
-				position: {
-					x: FRAME_PAD + col * (CARD_WIDTH + INDEP_GAP),
-					y: FRAME_HEADER + FRAME_PAD + row * (CARD_HEIGHT + INDEP_GAP)
-				},
-				data: flowData
-			});
+		let rowY = FRAME_HEADER + FRAME_PAD;
+		rows.forEach((row, rowIndex) => {
+			const rowWidth = row.length * CARD_WIDTH + (row.length - 1) * INDEP_GAP;
+			let x = FRAME_PAD + (contentWidth - rowWidth) / 2;
+			for (const n of row) {
+				const flowData = dataByNumber.get(n);
+				const size = sizes.get(n);
+				if (!flowData || !size) continue;
+				nodes.push({
+					id: `issue-${n}`,
+					type: 'issue',
+					parentId: frameId,
+					extent: 'parent',
+					position: { x, y: rowY },
+					width: size.width,
+					height: size.height,
+					style: `width:${size.width}px;height:${size.height}px`,
+					data: flowData
+				});
+				x += CARD_WIDTH + INDEP_GAP;
+			}
+			rowY += rowHeights[rowIndex] + INDEP_GAP;
 		});
 	}
-
-	const NEUTRAL_STROKE = '#a3a3a3';
-	const BLOCKED_STROKE = '#ef4444';
-	const edges: Edge[] = boardEdges.map((edge) => {
-		const blockedIssue = dataByNumber.get(edge.to);
-		const blocking =
-			!!blockedIssue && blockedIssue.issue.state === 'open' && blockedIssue.openBlockers > 0;
-		const color = blocking ? BLOCKED_STROKE : NEUTRAL_STROKE;
-		return {
-			id: `edge-${edge.from}-${edge.to}`,
-			source: `issue-${edge.from}`,
-			target: `issue-${edge.to}`,
-			type: 'smoothstep',
-			markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color },
-			style: `stroke: ${color}; stroke-width: 1.5;`
-		};
-	});
 
 	return {
 		nodes,
