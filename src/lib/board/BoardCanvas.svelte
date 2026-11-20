@@ -11,8 +11,8 @@
 	} from '@xyflow/svelte';
 	import type { Edge } from '@xyflow/svelte';
 	import ChainFrame from './ChainFrame.svelte';
-	import FloatingEdge from './FloatingEdge.svelte';
 	import IssueNode from './IssueNode.svelte';
+	import RoundedEdge from './RoundedEdge.svelte';
 	import type { BoardNode } from './graph';
 
 	interface Props {
@@ -32,7 +32,7 @@
 	}: Props = $props();
 
 	const nodeTypes = { issue: IssueNode, frame: ChainFrame };
-	const edgeTypes = { floating: FloatingEdge };
+	const edgeTypes = { rounded: RoundedEdge };
 
 	const flow = useSvelteFlow();
 

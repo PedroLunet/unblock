@@ -40,8 +40,6 @@ export interface IssueFlowData {
 	openBlockers: number;
 	/** Closed-issue blockers that are not visible on the canvas (open-only mode) — shown as a muted badge. */
 	resolvedBlockers: number;
-	/** Task-list references that point at PRs, not issues. Rendered as muted chips, no edge. */
-	prRefs: number[];
 	hasOpenPR: boolean;
 	[key: string]: unknown;
 }
@@ -114,8 +112,8 @@ function passesFilters(issue: IssueRecord, filters: BoardFilters): boolean {
 	return true;
 }
 
-function hasBadgeRow(flow: Pick<IssueFlowData, 'resolvedBlockers' | 'prRefs' | 'issue'>): boolean {
-	return flow.resolvedBlockers > 0 || flow.prRefs.length > 0 || flow.issue.linkedPRs.length > 0;
+function hasBadgeRow(flow: Pick<IssueFlowData, 'resolvedBlockers' | 'issue'>): boolean {
+	return flow.resolvedBlockers > 0 || flow.issue.linkedPRs.length > 0;
 }
 
 /**
@@ -191,6 +189,8 @@ function connectedComponents(ids: number[], edges: DepEdge[]): number[][] {
 interface ComponentLayout {
 	/** Node top-left positions relative to the component origin. */
 	positions: Map<number, { x: number; y: number }>;
+	/** Routed edge polylines relative to the component origin, keyed `from->to`. */
+	edgePoints: Map<string, { x: number; y: number }[]>;
 	width: number;
 	height: number;
 }
@@ -201,13 +201,23 @@ const ELK_LAYOUT_OPTIONS: Record<string, string> = {
 	'elk.edgeRouting': 'ORTHOGONAL',
 	'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
 	'elk.spacing.nodeNode': '56',
-	'elk.layered.spacing.nodeNodeBetweenLayers': '88'
+	'elk.spacing.edgeNode': '24',
+	'elk.spacing.edgeEdge': '14',
+	'elk.layered.spacing.nodeNodeBetweenLayers': '88',
+	'elk.layered.spacing.edgeNodeBetweenLayers': '20',
+	'elk.layered.spacing.edgeEdgeBetweenLayers': '14'
 };
+
+/** Edges always leave the bottom-center and enter the top-center of a card. */
+function portFor(node: number, side: 'in' | 'out'): string {
+	return `${side}-${node}`;
+}
 
 /**
  * ELK is heavy (~1.4 MB min) — load it lazily so the board shell paints while
  * the GitHub fetch and this chunk download in parallel.
- */ type ElkInstance = { layout: (graph: ElkNode) => Promise<ElkNode> };
+ */
+type ElkInstance = { layout: (graph: ElkNode) => Promise<ElkNode> };
 let elkInstance: ElkInstance | null = null;
 async function getElk(): Promise<ElkInstance> {
 	if (!elkInstance) {
@@ -229,12 +239,38 @@ async function layoutComponentElk(
 		layoutOptions: ELK_LAYOUT_OPTIONS,
 		children: members.flatMap((n) => {
 			const size = sizes.get(n);
-			return size ? [{ id: `issue-${n}`, width: size.width, height: size.height }] : [];
+			if (!size) return [];
+			return [
+				{
+					id: `issue-${n}`,
+					width: size.width,
+					height: size.height,
+					layoutOptions: { 'elk.portConstraints': 'FIXED_POS' },
+					ports: [
+						{
+							id: portFor(n, 'out'),
+							x: size.width / 2,
+							y: size.height,
+							width: 1,
+							height: 1,
+							layoutOptions: { 'elk.port.side': 'SOUTH' }
+						},
+						{
+							id: portFor(n, 'in'),
+							x: size.width / 2,
+							y: 0,
+							width: 1,
+							height: 1,
+							layoutOptions: { 'elk.port.side': 'NORTH' }
+						}
+					]
+				}
+			];
 		}),
 		edges: componentEdges.map((e) => ({
 			id: `edge-${e.from}-${e.to}`,
-			sources: [`issue-${e.from}`],
-			targets: [`issue-${e.to}`]
+			sources: [portFor(e.from, 'out')],
+			targets: [portFor(e.to, 'in')]
 		}))
 	};
 	const elk = await getElk();
@@ -251,7 +287,20 @@ async function layoutComponentElk(
 		maxX = Math.max(maxX, x + (child.width ?? CARD_WIDTH));
 		maxY = Math.max(maxY, y + (child.height ?? 0));
 	}
-	return { positions, width: maxX, height: maxY };
+	const edgePoints = new Map<string, { x: number; y: number }[]>();
+	for (const edge of laid.edges ?? []) {
+		const points: { x: number; y: number }[] = [];
+		for (const section of edge.sections ?? []) {
+			points.push({ x: section.startPoint.x, y: section.startPoint.y });
+			for (const bend of section.bendPoints ?? []) points.push({ x: bend.x, y: bend.y });
+			points.push({ x: section.endPoint.x, y: section.endPoint.y });
+		}
+		if (points.length >= 2) {
+			const key = edge.id.replace(/^edge-/, '').replace('-', '->');
+			edgePoints.set(key, points);
+		}
+	}
+	return { positions, edgePoints, width: maxX, height: maxY };
 }
 
 /**
@@ -269,21 +318,16 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 	const issueData = (issue: IssueRecord): IssueFlowData => {
 		let openBlockers = 0;
 		let resolvedBlockers = 0;
-		const prRefs: number[] = [];
 		for (const ref of issue.blockedBy) {
 			const target = resolveRef(data, ref.number);
-			if (target.kind === 'pr') {
-				prRefs.push(ref.number);
-			} else if (target.kind === 'issue') {
-				if (target.issue.state === 'open') openBlockers++;
-				else if (!visibleSet.has(target.issue.number)) resolvedBlockers++;
-			}
+			if (target.kind !== 'issue') continue;
+			if (target.issue.state === 'open') openBlockers++;
+			else if (!visibleSet.has(target.issue.number)) resolvedBlockers++;
 		}
 		return {
 			issue,
 			openBlockers,
 			resolvedBlockers,
-			prRefs,
 			hasOpenPR: issue.linkedPRs.some((pr) => pr.state === 'open')
 		};
 	};
@@ -343,6 +387,10 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 		}
 		for (const edge of boardEdges) {
 			if (!chain.includes(edge.from) || !chain.includes(edge.to)) continue;
+			const points = component.edgePoints.get(`${edge.from}->${edge.to}`);
+			if (!points) continue;
+			const originX = framePos.x + FRAME_PAD;
+			const originY = framePos.y + FRAME_HEADER + FRAME_PAD;
 			const blocked = dataByNumber.get(edge.to);
 			const blocking = !!blocked && blocked.issue.state === 'open' && blocked.openBlockers > 0;
 			const color = blocking ? '#ef4444' : '#a3a3a3';
@@ -350,7 +398,8 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 				id: `edge-${edge.from}-${edge.to}`,
 				source: `issue-${edge.from}`,
 				target: `issue-${edge.to}`,
-				type: 'floating',
+				type: 'rounded',
+				data: { points: points.map((p) => ({ x: p.x + originX, y: p.y + originY })) },
 				markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color },
 				style: `stroke: ${color}; stroke-width: 1.5;`
 			});
