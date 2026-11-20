@@ -135,3 +135,14 @@ Step 1" can be overridden — flag it in review.
   requestAnimationFrame, so the canvas stays unmeasured while the desktop window
   is occluded. Verified via headless Chrome/CDP (`/tmp` script, no deps) —
   fixture covers all badge/avatar/accent/red-edge states.
+- **Layout engine: ELK, not dagre** (review of real data showed overlapping
+  smoothstep elbows and arrowhead pileups). Each chain is laid out with ELK
+  layered (direction DOWN, `edgeRouting: ORTHOGONAL`, Brandes–Köpf placement);
+  a custom `orthogonal` edge component renders ELK's routed polyline directly
+  (absolute flow coordinates, no handles). ELK is loaded only on the board route.
+- **Content-sized cards**: card height is estimated per issue in `graph.ts`
+  from the same row constants `IssueNode.svelte` renders with (header 18px,
+  title ≤3 lines × 17px, labels 18px, milestone 15px, heat 15px, badges 18px,
+  4px gaps, 20px padding) — no fixed height, no dead space, no clipped titles.
+- **Selection clarity**: edges touching the selected issue are emphasized
+  (red-800, 2.5px) and unrelated edges dim to 25% while a drawer is open.
