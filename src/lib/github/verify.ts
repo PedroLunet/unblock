@@ -161,6 +161,20 @@ eq(
 	).blockedBy,
 	[]
 );
+eq(
+	'prose blocker with refs in the same paragraph is not a dep (real-world tts #935)',
+	deps(
+		"The only real consumer of this list is the planner's course picker, which shows {name} ({acronym}) per row. " +
+			'Without the join, migrating it to this endpoint (#928) needs an N+1 of GET /v1/occurrences/:id?year= per row, ' +
+			'or an extra GET /v1/courses/:id/units just to build an id → name map. That is the main blocker. #929 covers it.'
+	).blockedBy,
+	[]
+);
+eq(
+	'reverse Blocks line still works',
+	deps('- Blocks #928 (planner course-unit list migration).').blocks,
+	[{ number: 928, source: 'text' }]
+);
 eq('dependencies as a label', deps('**Dependencies:** #12, #13').blockedBy, [
 	{ number: 12, source: 'text' },
 	{ number: 13, source: 'text' }

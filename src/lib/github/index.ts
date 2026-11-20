@@ -70,6 +70,14 @@ export async function loadRepo(
 	const prs: Record<number, LinkedPR> = {};
 	for (const pr of loader.prs) prs[pr.number] = pr;
 
+	// Native relationships are curated truth: a text-derived edge pointing the
+	// opposite way of a native pair is stale prose and must never flip it
+	// (e.g. a body saying "blocked by #x" while GitHub says this issue blocks #x).
+	const nativePairs = new Set<string>();
+	for (const [blocked, blockers] of loader.nativeBlockedBy) {
+		for (const blocker of blockers) nativePairs.add(`${blocker}->${blocked}`);
+	}
+
 	// Parse dependency references from every issue body we have
 	// (in-scope and referenced), then merge in native relationships.
 	options.progress?.('Parsing dependencies from issue bodies…');
@@ -81,8 +89,14 @@ export async function loadRepo(
 			number: n,
 			source: 'native' as const
 		}));
-		blockedByByNumber.set(issue.number, dedupeRefs([...native, ...parsed.blockedBy]));
-		blocksByNumber.set(issue.number, parsed.blocks);
+		const textBlocked = parsed.blockedBy.filter(
+			(ref) => !nativePairs.has(`${issue.number}->${ref.number}`)
+		);
+		const textBlocks = parsed.blocks.filter(
+			(ref) => !nativePairs.has(`${ref.number}->${issue.number}`)
+		);
+		blockedByByNumber.set(issue.number, dedupeRefs([...native, ...textBlocked]));
+		blocksByNumber.set(issue.number, textBlocks);
 	}
 
 	// Numbers referenced from text that we do not know yet.

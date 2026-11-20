@@ -8,13 +8,14 @@ export interface ParsedDeps {
 }
 
 /**
- * Mid-sentence dependency keywords. Note: the bare noun "dependencies" is
- * deliberately absent — it is common technical prose ("the derived's
- * dependencies, so ... #16363 had the same cause") and would create false
- * edges. It is matched only as a line label below.
+ * Mid-sentence dependency keywords. Verb phrases only — bare nouns are too
+ * common in prose and created real-world false edges:
+ * - "dependencies" ("the derived's dependencies … unlike #17099")
+ * - "blocker(s)" ("…that is the main blocker … #929 covers it")
+ * Both are matched only as line labels (see DEPS_LABEL).
  * Reverse direction ("blocks #n") is handled separately.
  */
-const KEYWORDS = /\b(blocked[\s-]*by|blockers?|depends?[\s-]*on|requires|blocks)\b/gi;
+const KEYWORDS = /\b(blocked[\s-]*by|depends?[\s-]*on|requires|blocks)\b/gi;
 
 /** Label-style lines: "**Dependencies:** #12, #13", "Depends: #12", "Blocker: #12". */
 const DEPS_LABEL =
