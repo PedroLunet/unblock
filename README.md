@@ -18,7 +18,9 @@ bun src/lib/github/verify.ts   # offline parser/input verification suite
 
 Note: run `bun run check` before `bun run build` (or remove `.svelte-kit/output`
 afterwards) — svelte-check currently also type-checks build-output chunks when
-they exist, which drowns out real diagnostics.
+they exist, which drowns out real diagnostics. Also run `bun run gen` after a
+`bun run preview` session: `wrangler dev` leaves the generated
+`worker-configuration.d.ts` in a state `wrangler types --check` considers stale.
 
 ## GitHub access
 
