@@ -4,6 +4,19 @@
 @plugin '@tailwindcss/typography';
 @import '@xyflow/svelte/xy-theme.css';
 
+/* The xy-theme default node chrome insets every node by 10px + 1px border.
+   Our card/frame components draw their own box and must fill the exact
+   width/height ELK lays out, so the wrapper stays chrome-free. */
+.svelte-flow__node-issue,
+.svelte-flow__node-frame {
+	display: block;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	text-align: left;
+}
+
 /* Svelte Flow theme tweaks: light, neutral, high-contrast. */
 .svelte-flow {
 	--xy-edge-stroke: #c4c4c4;
