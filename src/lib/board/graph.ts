@@ -216,11 +216,15 @@ const ELK_LAYOUT_OPTIONS: Record<string, string> = {
 	'elk.mergeEdges': 'false'
 };
 
+/** One exit/entry point per card: all edges leave the bottom-center and enter the top-center. */
+function portFor(node: number, side: 'in' | 'out'): string {
+	return `${side}-${node}`;
+}
+
 /**
  * ELK is heavy (~1.4 MB min) — load it lazily so the board shell paints while
  * the GitHub fetch and this chunk download in parallel.
- */
-type ElkInstance = { layout: (graph: ElkNode) => Promise<ElkNode> };
+ */ type ElkInstance = { layout: (graph: ElkNode) => Promise<ElkNode> };
 let elkInstance: ElkInstance | null = null;
 async function getElk(): Promise<ElkInstance> {
 	if (!elkInstance) {
@@ -242,12 +246,39 @@ async function layoutComponentElk(
 		layoutOptions: ELK_LAYOUT_OPTIONS,
 		children: members.flatMap((n) => {
 			const size = sizes.get(n);
-			return size ? [{ id: `issue-${n}`, width: size.width, height: size.height }] : [];
+			return size
+				? [
+						{
+							id: `issue-${n}`,
+							width: size.width,
+							height: size.height,
+							layoutOptions: { 'elk.portConstraints': 'FIXED_POS' },
+							ports: [
+								{
+									id: portFor(n, 'out'),
+									x: size.width / 2,
+									y: size.height,
+									width: 1,
+									height: 1,
+									layoutOptions: { 'elk.port.side': 'SOUTH' }
+								},
+								{
+									id: portFor(n, 'in'),
+									x: size.width / 2,
+									y: 0,
+									width: 1,
+									height: 1,
+									layoutOptions: { 'elk.port.side': 'NORTH' }
+								}
+							]
+						}
+					]
+				: [];
 		}),
 		edges: componentEdges.map((e) => ({
 			id: `edge-${e.from}-${e.to}`,
-			sources: [`issue-${e.from}`],
-			targets: [`issue-${e.to}`]
+			sources: [portFor(e.from, 'out')],
+			targets: [portFor(e.to, 'in')]
 		}))
 	};
 	const elk = await getElk();
