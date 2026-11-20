@@ -88,7 +88,30 @@ Step 1" can be overridden — flag it in review.
 
 ## Deferred to Step 2 (ask then)
 
-- Open-only mode: hide resolved blockers vs. show a muted `1 resolved blocker` badge.
-- How task-list PR references should look on the canvas.
+- ~~Open-only mode: hide resolved blockers vs. show a muted `1 resolved blocker` badge.~~
+- ~~How task-list PR references should look on the canvas.~~
 - Whether native `relates to` relationships should also be drawn (data exists;
   currently only blocking relationships are edges).
+
+## Step 2 decisions (answered + made)
+
+- **Canvas engine**: `@xyflow/svelte@2.0.2` (Svelte 5-native, MIT) + `@dagrejs/dagre@3.1.3`.
+  Excalidraw rejected: React runtime, and a drawing canvas rather than a node/edge graph.
+- **Resolved blockers** (open-only mode): muted on-node badge
+  (`N resolved blocker(s)`), no dimmed closed nodes.
+- **Task-list references to PRs**: muted dashed `PR #n` chips on the node and
+  a line in the drawer; never drawn as dependency edges.
+- **Chain frames**: included — connected components become labeled
+  `Chain · N issues` frame nodes; singletons are packed into a single
+  `Independent · N issues` frame (matching the issues.martonpaulo.com reference).
+- **Layout**: dagre top-to-bottom per chain, chains packed vertically,
+  independent issues in a grid (≤6 columns). Fixed card geometry
+  (240×170) so dagre's positions stay truthful; frames are parent nodes
+  (dragging a frame moves the whole chain, children stay inside).
+- **Board route is client-only** (`ssr = false`): the PAT lives in
+  localStorage and all fetching is browser-side.
+- **Entry flow**: home page becomes the entry form (URL + PAT + scope) and
+  navigates to `/[owner]/[repo]?scope=open|all`; the Step 1 raw-data view
+  moves to `/debug`.
+- **Comparison reference**: `niaefeup/tts` (the issues.martonpaulo.com demo)
+  is used to sanity-check chain/edge rendering against the reference graph.
