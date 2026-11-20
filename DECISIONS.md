@@ -115,3 +115,23 @@ Step 1" can be overridden — flag it in review.
   moves to `/debug`.
 - **Comparison reference**: `niaefeup/tts` (the issues.martonpaulo.com demo)
   is used to sanity-check chain/edge rendering against the reference graph.
+
+## Step 2 visual refinements (answered after first review)
+
+- **Blocked must be instantly legible**: blocked cards get a red left accent
+  strip and a top-right corner counter badge; edges pointing into a blocked
+  issue are drawn red (blockers are always the sources). No manual "blocked"
+  flag — state is data-driven; the point is immediate visual recognition.
+- **Corner counter format**: `2` when both blockers are open, `1/2` when one of
+  two is resolved (tooltip `N of M blockers open`), hidden when no blockers are
+  open (the muted `N resolved blocker(s)` chip still shows full resolution).
+- **Assignees**: up to two 16px avatars + `@handles` (truncated) + `+N` on the
+  card; all avatars in the drawer; bold `Unassigned` when none.
+- **Canvas feel (Excalidraw-inspired)**: wheel pans (`panOnScroll`, speed 0.6),
+  pinch zooms, double-click zoom disabled, slightly larger dots, 200ms fitView.
+  Svelte Flow stays the engine — Excalidraw itself was rejected (React runtime,
+  drawing model instead of live data cards).
+- **Testing note**: Svelte Flow measures nodes and runs fitView via
+  requestAnimationFrame, so the canvas stays unmeasured while the desktop window
+  is occluded. Verified via headless Chrome/CDP (`/tmp` script, no deps) —
+  fixture covers all badge/avatar/accent/red-edge states.
