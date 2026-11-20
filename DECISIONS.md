@@ -1,0 +1,90 @@
+# Project decisions
+
+Locked-in answers and implementation choices for `unblock`, recorded so later
+steps (and reviews) don't have to re-litigate them. Anything under "Made during
+Step 1" can be overridden — flag it in review.
+
+## Answered before Step 1
+
+| Topic                          | Decision                                                                                                    |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Repo scale                     | Under 500 issues; full upfront fetch, hard cap at 500 with a visible truncation warning                     |
+| Anonymous linked-PR strategy   | Capped per-issue REST timeline calls (budget-aware) + "add a PAT" hints                                     |
+| Linked PR definition           | Closing links only: `Closes/Fixes/Resolves #n`, GitHub-native links, manually linked PRs. Mentions excluded |
+| Dependency parsing             | Text keywords + task lists + GitHub-native relationships; same-repo refs only                               |
+| Auto-layout direction (Step 2) | **Top-to-bottom** (blockers above what they block)                                                          |
+| GitHub data cache              | localStorage, 5-minute TTL, manual refresh bypasses it                                                      |
+| Verification repo              | `sveltejs/svelte`                                                                                           |
+| Stack defaults accepted        | bun, Tailwind v4, strict TS, adapter-cloudflare (project was already scaffolded this way)                   |
+
+## Made during Step 1 (correct me if wrong)
+
+1. **Issues sort when truncated**: capped fetches are ordered by `updated DESC`,
+   so the 500 kept issues are the most recently _active_ ones, not the newest
+   created. Rationale: PM relevance.
+2. **PRs excluded from the issues list**: GitHub's `/issues` returns PRs mixed in;
+   they're filtered out and PRs are fetched separately (draft state included).
+3. **Anonymous PR-link detection, two passes** (within the chosen budget):
+   - Pass 1 (cheap, full coverage): parse closing keywords in the bodies of all
+     open PRs → links issues to open PRs including drafts.
+   - Pass 2 (budget-capped): REST timeline `connected` events for issues without
+     links yet — catches manually linked and already-closed/merged PRs.
+     The warning banner says exactly which issues only got pass-1 coverage.
+4. **Native relationships (anonymous)**: discovered via `is:blocked` search
+   (1-2 calls), then enumerated per blocked issue via
+   `issues/{n}/dependencies/blocked_by` (cap 30). Enumerating only `blockedBy`
+   still sees every native edge, since "A blocks B" is the same relationship as
+   "B is blocked by A". GraphQL mode reads `Issue.blockedBy` inline instead.
+5. **Closed blockers are resolved, not hidden**: any issue referenced as a
+   dependency but outside the scope (e.g. closed in open-only mode) is fetched
+   individually (cap 60, budget-aware) so its state/assignees are known — this
+   is the data that Step 2's "resolved blocker" handling will need.
+6. **Task-list items pointing at PRs** are kept as references and shown in the
+   debug output, but are not drawn as issue→issue dependency edges (PR numbers
+   share the issue numbering space). A warning lists them.
+7. **Parser details**: recognizes `blocked by`, `blocker(s):`, `depends on`,
+   `depend on`, `requires`, `blocks #n` (reverse), comma-separated lists, and
+   task-list items. A task item whose content _is_ a reference
+   (`- [ ] #56`, `- [ ] #56 plus notes`, `- [ ] <same-repo issue URL>`) yields
+   **only that leading reference**; prose task items still honour explicit
+   keywords. The bare noun `dependencies` is matched **only as a line label**
+   (`Dependencies: #12`, `**Dependencies:** #12`) — mid-sentence occurrences
+   are prose ("the derived's dependencies … unlike #17099") and created
+   real-world false edges, verified live on sveltejs/svelte. Excludes fenced
+   code blocks, inline code, blockquotes, and HTML comments. Cross-repo refs
+   (`owner/other#n`, foreign URLs) are ignored.
+   Verified by a 55-check offline suite: `bun src/lib/github/verify.ts`.
+8. **Reactions in anonymous mode** come from the issues-list payload; if GitHub
+   ever omits them they render as `?` rather than fake zeros.
+9. **GraphQL linked PRs** use `Issue.closedByPullRequestsReferences(includeClosedPrs: true)`
+   — GitHub's "Development" section, including manually linked PRs. Cross-repo
+   PRs (a fork's own PR linked to this repo's issue) are kept and flagged
+   `crossRepository` so the UI can mark them `(cross-repo)`. Careful: the
+   GraphQL `PullRequest.isCrossRepository` field is the WRONG signal here —
+   it means "PR opened from a fork", true for nearly every community PR.
+   The reliable check is the PR's own URL vs the board's `owner/repo`
+   (verified live: ~180 fork PRs were initially misflagged on sveltejs/svelte).
+10. **Rate-limit short-circuit**: anonymous mode checks the quota right after
+    the repository-info call and stops with a clean message (reset time +
+    PAT hint) instead of burning the remaining calls one by one. The IP's
+    60/hr bucket is shared with anything else running locally, so the app
+    treats a pre-drained quota as a normal, surfaced condition.
+11. **REST anonymous coverage nuance**: GitHub's REST `/issues` endpoint
+    returns PRs mixed in with issues, and they count against the 500-item
+    cap. On a busy repo most recently-updated items can be PRs
+    (sveltejs/svelte: 283 of 500 slots → only 217 issues). GraphQL has no
+    such problem (its `issues` connection excludes PRs). Acceptable at the
+    chosen <500-issue scale; a future knob could top up issue pages if
+    PRs crowd them out.
+12. **Tooling note (not a product decision)**: svelte-check 4.7.x type-checks
+    `.svelte-kit/output` chunks after a production build (its ignore list
+    only covers watch events). Run `bun run check` before `bun run build`,
+    or `rm -rf .svelte-kit/output .svelte-kit/cloudflare*` before checking
+    after a build.
+
+## Deferred to Step 2 (ask then)
+
+- Open-only mode: hide resolved blockers vs. show a muted `1 resolved blocker` badge.
+- How task-list PR references should look on the canvas.
+- Whether native `relates to` relationships should also be drawn (data exists;
+  currently only blocking relationships are edges).
