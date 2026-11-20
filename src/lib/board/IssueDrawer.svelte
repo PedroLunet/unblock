@@ -106,11 +106,21 @@
 	<dl class="flex flex-col gap-1 text-xs">
 		<div class="flex gap-2">
 			<dt class="w-20 shrink-0 text-neutral-500">assignees</dt>
-			<dd class="min-w-0 text-neutral-900">
+			<dd class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-neutral-900">
 				{#if issue.assignees.length === 0}
 					<span class="font-bold">Unassigned</span>
 				{:else}
-					{issue.assignees.map((assignee) => assignee.login).join(', ')}
+					{#each issue.assignees as assignee (assignee.login)}
+						<span class="flex items-center gap-1">
+							<img
+								src={assignee.avatarUrl}
+								alt=""
+								loading="lazy"
+								class="h-4 w-4 shrink-0 rounded-full border border-neutral-300"
+							/>
+							<span>@{assignee.login}</span>
+						</span>
+					{/each}
 				{/if}
 			</dd>
 		</div>
