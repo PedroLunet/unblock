@@ -139,7 +139,18 @@ Step 1" can be overridden — flag it in review.
   smoothstep elbows and arrowhead pileups). Each chain is laid out with ELK
   layered (direction DOWN, `edgeRouting: ORTHOGONAL`, Brandes–Köpf placement);
   a custom `orthogonal` edge component renders ELK's routed polyline directly
-  (absolute flow coordinates, no handles). ELK is loaded only on the board route.
+  (absolute flow coordinates, no handle geometry). ELK is loaded lazily.
+- **One exit/entry point per card**: every issue has a fixed bottom-center
+  source port and top-center target port, so all outgoing edges leave from the
+  SAME point (one trunk that branches, as requested) and all incoming arrows
+  arrive at one point. ELK's router keeps seeded edges at least 24px away from
+  cards (`elk.spacing.edgeNode`), so edges never pass behind card bodies.
+- **Edges follow drags**: the edge component compares live handle positions with
+  the seeded polyline endpoints. Rigid moves (dragging a chain frame) translate
+  the seeded route; individually dragged nodes fall back to a live orthogonal
+  route (simple stub + branch) until Auto-Layout restores the ELK routing.
+  Obstacle-aware routing is guaranteed for seeded layouts; manual arrangements
+  are approximated.
 - **Content-sized cards**: card height is estimated per issue in `graph.ts`
   from the same row constants `IssueNode.svelte` renders with (header 18px,
   title ≤3 lines × 17px, labels 18px, milestone 15px, heat 15px, badges 18px,
