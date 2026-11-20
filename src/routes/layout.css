@@ -1,2 +1,21 @@
+@layer theme, base, xyflow, components, utilities;
+
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
+@import '@xyflow/svelte/xy-theme.css';
+
+/* Svelte Flow theme tweaks: light, neutral, high-contrast. */
+.svelte-flow {
+	--xy-edge-stroke: #c4c4c4;
+	--xy-background-pattern-dots-color: #cfcfcf;
+	--xy-controls-button-background-color: #ffffff;
+	--xy-controls-button-background-color-hover: #f5f5f5;
+	--xy-controls-button-border-color: #e5e5e5;
+	--xy-controls-box-shadow: 0 0 2px 1px rgb(0 0 0 / 0.06);
+	--xy-attribution-background-color: rgb(255 255 255 / 0.65);
+	--xy-minimap-background-color: #ffffff;
+	--xy-minimap-mask-background-color: rgb(245 245 245 / 0.7);
+	--xy-minimap-node-background-color: #d4d4d4;
+	--xy-handle-background-color: #a3a3a3;
+	--xy-handle-border-color: #ffffff;
+}

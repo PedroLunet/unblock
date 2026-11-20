@@ -33,7 +33,7 @@
 </script>
 
 <div
-	class="relative flex h-full w-full flex-col gap-1 overflow-hidden rounded-sm border bg-white p-2.5 text-neutral-900 {selected
+	class="relative flex h-full w-full flex-col gap-1 overflow-hidden rounded-md border bg-white p-2.5 text-neutral-900 shadow-sm {selected
 		? 'border-neutral-900 ring-1 ring-neutral-900'
 		: 'border-neutral-300'}"
 >

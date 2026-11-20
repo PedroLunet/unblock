@@ -1,17 +1,18 @@
 <script lang="ts">
-	import '@xyflow/svelte/dist/base.css';
 	import {
 		Background,
 		BackgroundVariant,
 		Controls,
 		MarkerType,
+		MiniMap,
+		Panel,
 		SvelteFlow,
 		useSvelteFlow
 	} from '@xyflow/svelte';
 	import type { Edge } from '@xyflow/svelte';
 	import ChainFrame from './ChainFrame.svelte';
+	import FloatingEdge from './FloatingEdge.svelte';
 	import IssueNode from './IssueNode.svelte';
-	import OrthogonalEdge from './OrthogonalEdge.svelte';
 	import type { BoardNode } from './graph';
 
 	interface Props {
@@ -31,7 +32,7 @@
 	}: Props = $props();
 
 	const nodeTypes = { issue: IssueNode, frame: ChainFrame };
-	const edgeTypes = { orthogonal: OrthogonalEdge };
+	const edgeTypes = { floating: FloatingEdge };
 
 	const flow = useSvelteFlow();
 
@@ -87,10 +88,19 @@
 		onlyRenderVisibleElements
 		fitView
 		fitViewOptions={{ padding: 0.15 }}
+		forceColorMode="light"
 		onnodeclick={handleNodeClick}
 		{onpaneclick}
 	>
+		<Panel position="top-left">
+			<div
+				class="flex items-center gap-2 border border-neutral-300 bg-white/95 px-2.5 py-1.5 text-[11px] text-neutral-700"
+			>
+				<span class="inline-block w-5 border-t-2 border-red-500"></span> blocks
+			</div>
+		</Panel>
 		<Controls position="bottom-left" showZoom showFitView showLock={false} />
+		<MiniMap position="bottom-right" pannable zoomable nodeStrokeWidth={0} />
 		<Background variant={BackgroundVariant.Dots} gap={18} size={1.6} patternColor="#c7c7c7" />
 	</SvelteFlow>
 </div>
