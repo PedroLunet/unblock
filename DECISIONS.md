@@ -69,13 +69,15 @@ Step 1" can be overridden — flag it in review.
     PAT hint) instead of burning the remaining calls one by one. The IP's
     60/hr bucket is shared with anything else running locally, so the app
     treats a pre-drained quota as a normal, surfaced condition.
-11. **REST anonymous coverage nuance**: GitHub's REST `/issues` endpoint
-    returns PRs mixed in with issues, and they count against the 500-item
-    cap. On a busy repo most recently-updated items can be PRs
-    (sveltejs/svelte: 283 of 500 slots → only 217 issues). GraphQL has no
-    such problem (its `issues` connection excludes PRs). Acceptable at the
-    chosen <500-issue scale; a future knob could top up issue pages if
-    PRs crowd them out.
+
+- **REST anonymous coverage nuance**: GitHub's REST `/issues` endpoint
+  returns PRs mixed in with issues, and they count against the 500-item
+  cap. On a busy repo most recently-updated items can be PRs
+  (sveltejs/svelte: 283 of 500 slots → only 217 issues). GraphQL has no
+  such problem (its `issues` connection excludes PRs). Acceptable at the
+  chosen <500-issue scale; a future knob could top up issue pages if
+  PRs crowd them out.
+
 12. **Tooling notes (not product decisions)**: svelte-check 4.7.x type-checks
     `.svelte-kit/output` chunks after a production build (its ignore list
     only covers watch events) — run `bun run check` before `bun run build`
@@ -116,6 +118,15 @@ Step 1" can be overridden — flag it in review.
 - **Comparison reference**: `niaefeup/tts` (the issues.martonpaulo.com demo)
   is used to sanity-check chain/edge rendering against the reference graph.
 
+## Superseded
+
+- Step 1/early Step 2 parser decisions (text keywords, task-list deps, label
+  keywords, bare-noun exclusions, native-over-stale-text precedence) are
+  **superseded** by the native-only blocking relationship decision above.
+- The body-text dependency parser (`parse-deps.ts`) and its tests were
+  deleted; dependencies now come solely from GitHub's own Relationships
+  attribute, which is curated data rather than prose.
+
 ## Step 2 visual refinements (answered after first review)
 
 - **Blocked must be instantly legible**: blocked cards get a red left accent
@@ -139,14 +150,17 @@ Step 1" can be overridden — flag it in review.
   smoothstep elbows and arrowhead pileups). ELK layered (direction DOWN,
   Brandes–Köpf placement) positions nodes only — edge routing is left to the
   official Svelte Flow "floating edges" pattern. ELK is loaded lazily.
-- **Floating bezier edges (official example)**: a custom `floating` edge uses
-  `useInternalNode` + the official rectangle-intersection math (ported from
-  svelteflow.dev/examples/edges/floating-edges) and draws with `getBezierPath`.
-  Edges attach to the nearest side of each card, get distinct border anchor
-  points per target (fan-out reads as one bundle splitting naturally), and
-  follow node drags natively with no static seeds or translation logic.
-  Invisible handles remain only because Svelte Flow requires handle bounds to
-  render edges; geometry ignores them.
+- **Rounded orthogonal edges, bottom → top only (final geometry)**: ELK owns
+  both node placement and edge routing (orthogonal, obstacle-aware with
+  `spacing.edgeNode: 24`). Every card has one fixed bottom-center source port
+  and one top-center target port. A custom `rounded` edge renders ELK's routed
+  polyline with 7px rounded corners (`M`/`L`/`Q`), so arrows always leave the
+  bottom-center, always enter the top-center, stay straight with soft bends,
+  and never cross card bodies in laid-out graphs — verified geometrically with
+  a headless test that intersects every edge polyline with every card rectangle
+  (zero hits). Rigid moves (dragging a chain frame) translate the seeded route;
+  individually dragged nodes use a bottom→top orthogonal fallback until
+  Auto-Layout. This supersedes the floating-bezier experiment.
 - **Themed canvas UI (official styles)**: `@xyflow/svelte/xy-theme.css` is
   imported in `layout.css` with the documented layer order
   (`@layer theme, base, xyflow, components, utilities;`), plus light-mode CSS
@@ -154,15 +168,18 @@ Step 1" can be overridden — flag it in review.
   canvas uses `forceColorMode="light"`, the official `<MiniMap>`
   (bottom-right, pannable/zoomable), `<Controls>`, and a `<Panel>` legend
   ("→ blocks") — the example-app look instead of hand-rolled chrome.
-- **Native relationships beat stale text**: GitHub-native relationships are
-  curated truth. A text-derived ref that points the OPPOSITE way of a native
-  pair is dropped at merge time (e.g. a body saying "blocked by #x" while
-  GitHub says this issue blocks #x). Extra text/task-list deps that do not
-  contradict native data are kept (that is the parser's added value).
-- **Keyword hygiene (learned twice from real data)**: bare nouns are
-  label-only — `dependencies` and `blocker(s)` match only as line labels
-  (`Blockers: #12`), never mid-sentence prose. Verb phrases (`blocked by`,
-  `depends on`, `requires`, `blocks`) remain mid-sentence keywords.
+- **Native-only blocking relationships (latest decision)**: dependencies come
+  exclusively from GitHub's issue **Relationships attribute** (GraphQL
+  `Issue.blockedBy`, REST `dependencies/blocked_by`). Body text, task lists and
+  labels are NOT parsed — real repos (niaefeup/tts, sveltejs/svelte) showed
+  stale or prose-style mentions creating false and reversed edges. The text
+  parser was removed entirely, along with task-list PR refs. Trade-offs:
+  - Anonymous REST can only enumerate native relationships within the 60/hr
+    budget (honest warnings; PAT recommended for complete graphs).
+  - Repositories that don't use the Relationships attribute show no dependency
+    edges; the board displays an explanatory hint in that case.
+  - Old decisions about text parsing/label keywords/bare-noun exclusions are
+    superseded and kept below only as history.
 - **Content-sized cards**: card height is estimated per issue in `graph.ts`
   from the same row constants `IssueNode.svelte` renders with (header 18px,
   title ≤3 lines × 17px, labels 18px, milestone 15px, heat 15px, badges 18px,
