@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolveRef } from '#lib/github';
-	import type { DependencyRef, DepSource, IssueRecord, LinkedPR, RepoData } from '#lib/github';
+	import type { DependencyRef, IssueRecord, LinkedPR, RepoData } from '#lib/github';
 
 	interface Props {
 		issue: IssueRecord;
@@ -14,7 +14,6 @@
 		number: number;
 		label: string;
 		href: string | null;
-		source: DepSource | null;
 	}
 
 	function resolveRows(refs: DependencyRef[]): ResolvedRefRow[] {
@@ -24,23 +23,20 @@
 				return {
 					number: ref.number,
 					label: `#${ref.number} (${resolution.issue.state})`,
-					href: resolution.issue.url,
-					source: ref.source
+					href: resolution.issue.url
 				};
 			}
 			if (resolution.kind === 'pr') {
 				return {
 					number: ref.number,
 					label: `PR #${ref.number}`,
-					href: resolution.pr.url,
-					source: null
+					href: resolution.pr.url
 				};
 			}
 			return {
 				number: ref.number,
 				label: `#${ref.number} (missing)`,
-				href: null,
-				source: null
+				href: null
 			};
 		});
 	}
@@ -58,11 +54,6 @@
 
 	let blockedBy = $derived(resolveRows(issue.blockedBy));
 	let blocks = $derived(resolveRows(issue.blocks));
-	let prRefs = $derived(
-		issue.blockedBy
-			.filter((ref) => resolveRef(data, ref.number).kind === 'pr')
-			.map((ref) => ref.number)
-	);
 </script>
 
 <div
@@ -169,9 +160,6 @@
 					{:else}
 						<span class="text-neutral-500">{row.label}</span>
 					{/if}
-					{#if row.source}
-						<span class="text-[10px] text-neutral-500">{row.source}</span>
-					{/if}
 				</div>
 			{/each}
 		{/if}
@@ -195,9 +183,6 @@
 						</a>
 					{:else}
 						<span class="text-neutral-500">{row.label}</span>
-					{/if}
-					{#if row.source}
-						<span class="text-[10px] text-neutral-500">{row.source}</span>
 					{/if}
 				</div>
 			{/each}
@@ -231,9 +216,6 @@
 				</div>
 			{/each}
 		{/if}
-		{#each prRefs as prRef (prRef)}
-			<p class="text-neutral-500">Also references PR #{prRef} (not a blocker)</p>
-		{/each}
 	</section>
 
 	<section class="flex flex-col gap-1">

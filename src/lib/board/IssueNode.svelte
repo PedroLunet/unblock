@@ -113,7 +113,7 @@
 		reactions {issue.reactions ? issue.reactions.total : '?'} · updated {daysAgo}d ago
 	</p>
 
-	{#if data.resolvedBlockers > 0 || data.prRefs.length > 0 || issue.linkedPRs.length > 0}
+	{#if data.resolvedBlockers > 0 || issue.linkedPRs.length > 0}
 		<div class="flex h-[18px] flex-wrap items-center gap-1 overflow-hidden">
 			{#if data.resolvedBlockers > 0}
 				<span class="border border-neutral-300 px-1 text-[10px] text-neutral-500">
@@ -121,11 +121,6 @@
 					{data.resolvedBlockers === 1 ? 'resolved blocker' : 'resolved blockers'}
 				</span>
 			{/if}
-			{#each data.prRefs as prRef (prRef)}
-				<span class="border border-dashed border-neutral-300 px-1 text-[10px] text-neutral-500">
-					PR #{prRef}
-				</span>
-			{/each}
 			{#each linkedPRs as pr (pr.number)}
 				<span class="border px-1 text-[10px] {prClass(pr)}" title={prTitle(pr)}>
 					{prStatus(pr)} #{pr.number}

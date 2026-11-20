@@ -1,5 +1,4 @@
 import { loadRepoViaGraphQL } from './graphql';
-import { dedupeRefs, parseDependencies } from './parse-deps';
 import { loadRepoViaRest } from './rest';
 import { readRepoCache, repoCacheKey, writeRepoCache } from './storage';
 import type {
@@ -27,6 +26,15 @@ export interface LoadRepoOptions {
 	/** Skip the 5-minute cache and force a refetch. */
 	refresh?: boolean;
 	progress?: (message: string) => void;
+}
+
+/** Dedupe refs by issue number. */
+function dedupeRefs(refs: DependencyRef[]): DependencyRef[] {
+	const map = new Map<number, DependencyRef>();
+	for (const ref of refs) {
+		if (!map.has(ref.number)) map.set(ref.number, ref);
+	}
+	return [...map.values()].sort((a, b) => a.number - b.number);
 }
 
 const EDGE_PRIORITY: Record<DependencyRef['source'], number> = {
@@ -70,45 +78,25 @@ export async function loadRepo(
 	const prs: Record<number, LinkedPR> = {};
 	for (const pr of loader.prs) prs[pr.number] = pr;
 
-	// Native relationships are curated truth: a text-derived edge pointing the
-	// opposite way of a native pair is stale prose and must never flip it
-	// (e.g. a body saying "blocked by #x" while GitHub says this issue blocks #x).
-	const nativePairs = new Set<string>();
-	for (const [blocked, blockers] of loader.nativeBlockedBy) {
-		for (const blocker of blockers) nativePairs.add(`${blocker}->${blocked}`);
-	}
-
-	// Parse dependency references from every issue body we have
-	// (in-scope and referenced), then merge in native relationships.
-	options.progress?.('Parsing dependencies from issue bodies…');
+	// Blocking relationships come exclusively from GitHub's native issue
+	// relationships (the "Relationships" attribute on the issue). Body text and
+	// task lists are intentionally NOT parsed: prose gets stale and produced
+	// false, reversed edges on real repositories (niaefeup/tts, sveltejs/svelte).
 	const blockedByByNumber = new Map<number, DependencyRef[]>();
-	const blocksByNumber = new Map<number, DependencyRef[]>();
 	for (const issue of known.values()) {
-		const parsed = parseDependencies(issue.body, issue.number, owner, repo);
 		const native = (loader.nativeBlockedBy.get(issue.number) ?? []).map((n) => ({
 			number: n,
 			source: 'native' as const
 		}));
-		const textBlocked = parsed.blockedBy.filter(
-			(ref) => !nativePairs.has(`${issue.number}->${ref.number}`)
-		);
-		const textBlocks = parsed.blocks.filter(
-			(ref) => !nativePairs.has(`${ref.number}->${issue.number}`)
-		);
-		blockedByByNumber.set(issue.number, dedupeRefs([...native, ...textBlocked]));
-		blocksByNumber.set(issue.number, textBlocks);
+		blockedByByNumber.set(issue.number, dedupeRefs(native));
 	}
 
-	// Numbers referenced from text that we do not know yet.
+	// Native blockers may be outside the current scope (e.g. closed issues
+	// while in open-only mode): resolve them so their state is known.
 	const unresolved = new Set<number>();
 	for (const refs of blockedByByNumber.values()) {
 		for (const ref of refs) {
-			if (!known.has(ref.number) && !(ref.number in prs)) unresolved.add(ref.number);
-		}
-	}
-	for (const refs of blocksByNumber.values()) {
-		for (const ref of refs) {
-			if (!known.has(ref.number) && !(ref.number in prs)) unresolved.add(ref.number);
+			if (!known.has(ref.number)) unresolved.add(ref.number);
 		}
 	}
 	const unresolvedList = [...unresolved].sort((a, b) => a - b);
@@ -144,28 +132,14 @@ export async function loadRepo(
 			edges.set(id, { from, to, source });
 		}
 	};
-	const prTaskRefs: string[] = [];
 	for (const issue of known.values()) {
 		issue.blockedBy = blockedByByNumber.get(issue.number) ?? [];
-		issue.blocks = blocksByNumber.get(issue.number) ?? [];
+		issue.blocks = [];
 		for (const ref of issue.blockedBy) {
 			if (known.has(ref.number)) {
 				addEdge(ref.number, issue.number, ref.source);
-			} else if (ref.number in prs) {
-				prTaskRefs.push(`#${issue.number} → PR #${ref.number}`);
 			}
 		}
-		for (const ref of issue.blocks) {
-			if (known.has(ref.number)) {
-				addEdge(issue.number, ref.number, ref.source);
-			}
-		}
-	}
-	if (prTaskRefs.length) {
-		loader.warnings.push(
-			`Task lists reference PRs (kept as references, not issue deps): ${prTaskRefs.slice(0, 8).join(', ')}` +
-				`${prTaskRefs.length > 8 ? ', …' : ''}`
-		);
 	}
 	// Fill the reverse direction ("blocks") from the final edges
 	// so native relationships are reflected on the blocker too.

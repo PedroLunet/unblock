@@ -236,6 +236,15 @@
 					No issues match the current filters.
 				</div>
 			{/if}
+
+			{#if !loading && !error && counts && counts.edges === 0}
+				<div
+					class="absolute top-4 left-1/2 max-w-md -translate-x-1/2 border border-neutral-300 bg-white px-3 py-2 text-center text-xs text-neutral-600"
+				>
+					No native blocking relationships in this view. Dependencies come from GitHub's issue
+					Relationships attribute only.
+				</div>
+			{/if}
 		</div>
 
 		{#if selectedIssue && data}

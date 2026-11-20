@@ -1,7 +1,7 @@
 import type { RepoData } from './types';
 
 const PAT_KEY = 'unblock:pat';
-const CACHE_PREFIX = 'unblock:repo:v1';
+const CACHE_PREFIX = 'unblock:repo:v2';
 const TTL_MS = 5 * 60 * 1000;
 
 function available(): boolean {
