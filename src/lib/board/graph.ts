@@ -232,6 +232,9 @@ export function buildBoard(data: RepoData, filters: BoardFilters): BoardModel {
 		visible.map((issue) => issue.number),
 		boardEdges
 	);
+	// Precompute card data so edges can also tell whether they point into a blocked issue.
+	const dataByNumber = new Map<number, IssueFlowData>();
+	for (const issue of visible) dataByNumber.set(issue.number, issueData(issue));
 	const chains = components.filter((group) => group.length > 1);
 	const singles = components.filter((group) => group.length === 1).map((group) => group[0]);
 
@@ -260,14 +263,15 @@ export function buildBoard(data: RepoData, filters: BoardFilters): BoardModel {
 		for (const n of chain) {
 			const issue = issuesByNumber.get(n);
 			const pos = positions.get(n);
-			if (!issue || !pos) continue;
+			const flowData = dataByNumber.get(n);
+			if (!issue || !pos || !flowData) continue;
 			nodes.push({
 				id: `issue-${n}`,
 				type: 'issue',
 				parentId: frameId,
 				extent: 'parent',
 				position: { x: pos.x + FRAME_PAD, y: pos.y + FRAME_PAD + FRAME_HEADER },
-				data: issueData(issue)
+				data: flowData
 			});
 		}
 		yCursor += maxY + FRAME_PAD * 2 + FRAME_HEADER + CHAIN_GAP;
@@ -290,8 +294,8 @@ export function buildBoard(data: RepoData, filters: BoardFilters): BoardModel {
 			selectable: false
 		});
 		singles.forEach((n, i) => {
-			const issue = issuesByNumber.get(n);
-			if (!issue) return;
+			const flowData = dataByNumber.get(n);
+			if (!flowData) return;
 			const col = i % cols;
 			const row = Math.floor(i / cols);
 			nodes.push({
@@ -303,19 +307,27 @@ export function buildBoard(data: RepoData, filters: BoardFilters): BoardModel {
 					x: FRAME_PAD + col * (CARD_WIDTH + INDEP_GAP),
 					y: FRAME_HEADER + FRAME_PAD + row * (CARD_HEIGHT + INDEP_GAP)
 				},
-				data: issueData(issue)
+				data: flowData
 			});
 		});
 	}
 
-	const edges: Edge[] = boardEdges.map((edge) => ({
-		id: `edge-${edge.from}-${edge.to}`,
-		source: `issue-${edge.from}`,
-		target: `issue-${edge.to}`,
-		type: 'smoothstep',
-		markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#a3a3a3' },
-		style: 'stroke: #a3a3a3; stroke-width: 1.5;'
-	}));
+	const NEUTRAL_STROKE = '#a3a3a3';
+	const BLOCKED_STROKE = '#ef4444';
+	const edges: Edge[] = boardEdges.map((edge) => {
+		const blockedIssue = dataByNumber.get(edge.to);
+		const blocking =
+			!!blockedIssue && blockedIssue.issue.state === 'open' && blockedIssue.openBlockers > 0;
+		const color = blocking ? BLOCKED_STROKE : NEUTRAL_STROKE;
+		return {
+			id: `edge-${edge.from}-${edge.to}`,
+			source: `issue-${edge.from}`,
+			target: `issue-${edge.to}`,
+			type: 'smoothstep',
+			markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color },
+			style: `stroke: ${color}; stroke-width: 1.5;`
+		};
+	});
 
 	return {
 		nodes,
