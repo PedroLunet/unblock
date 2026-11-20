@@ -139,7 +139,7 @@ export function estimateCardHeight(flow: IssueFlowData): number {
 		contentHeight += BADGES_H;
 		rows++;
 	}
-	const estimated = CARD_PAD + contentHeight + (rows - 1) * ROW_GAP;
+	const estimated = CARD_PAD + contentHeight + (rows - 1) * ROW_GAP + 8;
 	return Math.max(132, Math.min(210, estimated));
 }
 
@@ -211,6 +211,190 @@ const ELK_LAYOUT_OPTIONS: Record<string, string> = {
 /** Edges always leave the bottom-center and enter the top-center of a card. */
 function portFor(node: number, side: 'in' | 'out'): string {
 	return `${side}-${node}`;
+}
+
+interface Pt {
+	x: number;
+	y: number;
+}
+
+interface Rect {
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+}
+
+/** Clearance used when detouring around a card. */
+const REPAIR_GAP = 16;
+
+function dedupePoints(points: Pt[]): Pt[] {
+	const out: Pt[] = [];
+	for (const p of points) {
+		const last = out[out.length - 1];
+		if (last && Math.abs(last.x - p.x) < 0.5 && Math.abs(last.y - p.y) < 0.5) continue;
+		out.push(p);
+	}
+	return out;
+}
+
+/** Does an axis-aligned segment overlap a rectangle (slightly inset)? */
+function segmentHitsRect(a: Pt, b: Pt, r: Rect): boolean {
+	const eps = 0.5;
+	const minX = Math.min(a.x, b.x);
+	const maxX = Math.max(a.x, b.x);
+	const minY = Math.min(a.y, b.y);
+	const maxY = Math.max(a.y, b.y);
+	return maxX > r.x + eps && minX < r.x + r.w - eps && maxY > r.y + eps && minY < r.y + r.h - eps;
+}
+
+function allClear(pieces: [Pt, Pt][], obstacles: Rect[]): boolean {
+	return pieces.every(([a, b]) => !obstacles.some((r) => segmentHitsRect(a, b, r)));
+}
+
+function piecesOf(points: Pt[]): [Pt, Pt][] {
+	return points.slice(0, -1).map((p, i) => [p, points[i + 1]] as [Pt, Pt]);
+}
+
+/**
+ * Post-routing guarantee: no edge segment may pass through a card rectangle.
+ * ELK's orthogonal router occasionally drops a long edge straight through the
+ * card that sits above its target. This repair detours any intersecting segment
+ * around the blocking cards (with clearance) and repeats for new segments.
+ */
+function gapMids(intervals: [number, number][]): number[] {
+	const sorted = intervals.slice().sort((a, b) => a[0] - b[0]);
+	const merged: [number, number][] = [];
+	for (const it of sorted) {
+		const last = merged[merged.length - 1];
+		if (last && it[0] <= last[1]) last[1] = Math.max(last[1], it[1]);
+		else merged.push([it[0], it[1]]);
+	}
+	const mids: number[] = [];
+	for (let i = 0; i < merged.length - 1; i++) {
+		const gap = merged[i + 1][0] - merged[i][1];
+		if (gap >= 2) mids.push(merged[i][1] + gap / 2);
+	}
+	return mids;
+}
+
+function pickLane(list: number[], boundA: number, boundB: number, prefer: number): number | null {
+	const lo = Math.min(boundA, boundB);
+	const hi = Math.max(boundA, boundB);
+	const candidates = list.filter((m) => m >= lo && m <= hi);
+	if (candidates.length === 0) return null;
+	return candidates.sort((p, q) => Math.abs(p - prefer) - Math.abs(q - prefer))[0];
+}
+
+function repairVertical(
+	a: Pt,
+	b: Pt,
+	blockers: Rect[],
+	colMids: number[],
+	rowMids: number[],
+	obstacles: Rect[]
+): Pt[] | null {
+	const dir: 1 | -1 = b.y > a.y ? 1 : -1;
+	const minTop = Math.min(...blockers.map((r) => r.y));
+	const maxBottom = Math.max(...blockers.map((r) => r.y + r.h));
+	const near = dir > 0 ? minTop : maxBottom;
+	const far = dir > 0 ? maxBottom : minTop;
+	const laneIn = pickLane(rowMids, a.y, near - dir * REPAIR_GAP, a.y + dir * REPAIR_GAP);
+	const laneOut = pickLane(rowMids, far + dir * REPAIR_GAP, b.y, b.y - dir * REPAIR_GAP);
+	if (laneIn === null || laneOut === null) return null;
+	if (dir > 0 ? laneIn >= laneOut : laneOut >= laneIn) return null;
+	const corridor = colMids
+		.filter((x) => x > 1)
+		.sort((p, q) => Math.abs(p - a.x) - Math.abs(q - a.x));
+	for (const x of corridor) {
+		const candidate: Pt[] = [
+			a,
+			{ x: a.x, y: laneIn },
+			{ x, y: laneIn },
+			{ x, y: laneOut },
+			{ x: a.x, y: laneOut },
+			b
+		];
+		if (allClear(piecesOf(candidate), obstacles)) return candidate;
+	}
+	return null;
+}
+
+function repairHorizontal(
+	a: Pt,
+	b: Pt,
+	blockers: Rect[],
+	colMids: number[],
+	rowMids: number[],
+	obstacles: Rect[]
+): Pt[] | null {
+	const dir: 1 | -1 = b.x > a.x ? 1 : -1;
+	const minLeft = Math.min(...blockers.map((r) => r.x));
+	const maxRight = Math.max(...blockers.map((r) => r.x + r.w));
+	const near = dir > 0 ? minLeft : maxRight;
+	const far = dir > 0 ? maxRight : minLeft;
+	const laneIn = pickLane(colMids, a.x, near - dir * REPAIR_GAP, a.x + dir * REPAIR_GAP);
+	const laneOut = pickLane(colMids, far + dir * REPAIR_GAP, b.x, b.x - dir * REPAIR_GAP);
+	if (laneIn === null || laneOut === null) return null;
+	if (dir > 0 ? laneIn >= laneOut : laneOut >= laneIn) return null;
+	const corridor = rowMids
+		.filter((y) => y > 1)
+		.sort((p, q) => Math.abs(p - a.y) - Math.abs(q - a.y));
+	for (const y of corridor) {
+		const candidate: Pt[] = [
+			a,
+			{ x: laneIn, y: a.y },
+			{ x: laneIn, y },
+			{ x: laneOut, y },
+			{ x: laneOut, y: a.y },
+			b
+		];
+		if (allClear(piecesOf(candidate), obstacles)) return candidate;
+	}
+	return null;
+}
+
+/**
+ * Post-routing guarantee: no edge segment may pass through a card rectangle.
+ * Uses global free corridors (gap midpoints between all card bands), so any
+ * detour stays clear of every card.
+ */
+function avoidCards(points: Pt[], obstacles: Rect[]): Pt[] {
+	if (obstacles.length === 0) return points;
+	const colMids = gapMids(obstacles.map((r) => [r.x, r.x + r.w]));
+	const rowMids = gapMids(obstacles.map((r) => [r.y, r.y + r.h]));
+	let pts = dedupePoints(points);
+	for (let pass = 0; pass < 6; pass++) {
+		let changed = false;
+		const next: Pt[] = [pts[0]];
+		for (let i = 1; i < pts.length; i++) {
+			const a = pts[i - 1];
+			const b = pts[i];
+			const vertical = Math.abs(a.x - b.x) < 0.5;
+			const horizontal = Math.abs(a.y - b.y) < 0.5;
+			if (!vertical && !horizontal) {
+				next.push(b);
+				continue;
+			}
+			const blockers = obstacles.filter((r) => segmentHitsRect(a, b, r));
+			if (blockers.length === 0) {
+				next.push(b);
+				continue;
+			}
+			const routed = vertical
+				? repairVertical(a, b, blockers, colMids, rowMids, obstacles)
+				: repairHorizontal(a, b, blockers, colMids, rowMids, obstacles);
+			if (routed) {
+				next.push(...routed.slice(1));
+				changed = true;
+			} else {
+				next.push(b);
+			}
+		}
+		pts = dedupePoints(next);
+		if (!changed) break;
+	}
+	return pts;
 }
 
 /**
@@ -287,6 +471,13 @@ async function layoutComponentElk(
 		maxX = Math.max(maxX, x + (child.width ?? CARD_WIDTH));
 		maxY = Math.max(maxY, y + (child.height ?? 0));
 	}
+	// Card rectangles for the post-routing no-crossing guarantee.
+	const rects = new Map<number, Rect>();
+	for (const n of members) {
+		const pos = positions.get(n);
+		const size = sizes.get(n);
+		if (pos && size) rects.set(n, { x: pos.x, y: pos.y, w: size.width, h: size.height });
+	}
 	const edgePoints = new Map<string, { x: number; y: number }[]>();
 	for (const edge of laid.edges ?? []) {
 		const points: { x: number; y: number }[] = [];
@@ -297,7 +488,18 @@ async function layoutComponentElk(
 		}
 		if (points.length >= 2) {
 			const key = edge.id.replace(/^edge-/, '').replace('-', '->');
-			edgePoints.set(key, points);
+			const [fromPart, toPart] = key.split('->');
+			const from = Number(fromPart);
+			const to = Number(toPart);
+			const obstacles = [...rects.entries()]
+				.filter(([id]) => id !== from && id !== to)
+				.map(([, rect]) => rect);
+			const repaired = avoidCards(points, obstacles);
+			edgePoints.set(key, repaired);
+			for (const p of repaired) {
+				maxX = Math.max(maxX, p.x);
+				maxY = Math.max(maxY, p.y);
+			}
 		}
 	}
 	return { positions, edgePoints, width: maxX, height: maxY };

@@ -158,16 +158,20 @@ Step 1" can be overridden — flag it in review.
   bottom-center, always enter the top-center, stay straight with soft bends,
   and never cross card bodies in laid-out graphs — verified geometrically with
   a headless test that intersects every edge polyline with every card rectangle
-  (zero hits). Rigid moves (dragging a chain frame) translate the seeded route;
-  individually dragged nodes use a bottom→top orthogonal fallback until
-  Auto-Layout. This supersedes the floating-bezier experiment.
+  (zero hits). Routes are seeded from ELK into the edge data; dragging re-anchors
+  the seeded route to the measured card edges (the final leg stretches to the
+  target's top-center) instead of falling back to an un-routed straight line.
+  This supersedes the floating-bezier experiment.
 - **Themed canvas UI (official styles)**: `@xyflow/svelte/xy-theme.css` is
   imported in `layout.css` with the documented layer order
   (`@layer theme, base, xyflow, components, utilities;`), plus light-mode CSS
   variable overrides (edge stroke, dots, controls, minimap, handles). The
   canvas uses `forceColorMode="light"`, the official `<MiniMap>`
   (bottom-right, pannable/zoomable), `<Controls>`, and a `<Panel>` legend
-  ("→ blocks") — the example-app look instead of hand-rolled chrome.
+  ("→ blocks") — the example-app look instead of hand-rolled chrome. The
+  theme's default node padding/border is reset for issue and frame nodes: both
+  components draw their own box and must fill ELK's exact card dimensions, or
+  clamped titles and offset edge anchors follow.
 - **Native-only blocking relationships (latest decision)**: dependencies come
   exclusively from GitHub's issue **Relationships attribute** (GraphQL
   `Issue.blockedBy`, REST `dependencies/blocked_by`). Body text, task lists and
