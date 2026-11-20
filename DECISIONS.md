@@ -136,24 +136,28 @@ Step 1" can be overridden — flag it in review.
   is occluded. Verified via headless Chrome/CDP (`/tmp` script, no deps) —
   fixture covers all badge/avatar/accent/red-edge states.
 - **Layout engine: ELK, not dagre** (review of real data showed overlapping
-  smoothstep elbows and arrowhead pileups). Each chain is laid out with ELK
-  layered (direction DOWN, `edgeRouting: ORTHOGONAL`, Brandes–Köpf placement);
-  a custom `orthogonal` edge component renders ELK's routed polyline directly
-  (absolute flow coordinates, no handle geometry). ELK is loaded lazily.
-- **One exit/entry point per card**: every issue has a fixed bottom-center
-  source port and top-center target port, so all outgoing edges leave from the
-  SAME point (one trunk that branches, as requested) and all incoming arrows
-  arrive at one point. ELK's router keeps seeded edges at least 24px away from
-  cards (`elk.spacing.edgeNode`), so edges never pass behind card bodies.
-- **Edges follow drags**: the edge component compares live handle positions with
-  the seeded polyline endpoints. Rigid moves (dragging a chain frame) translate
-  the seeded route; individually dragged nodes fall back to a live orthogonal
-  route (simple stub + branch) until Auto-Layout restores the ELK routing.
-  Obstacle-aware routing is guaranteed for seeded layouts; manual arrangements
-  are approximated.
+  smoothstep elbows and arrowhead pileups). ELK layered (direction DOWN,
+  Brandes–Köpf placement) positions nodes only — edge routing is left to the
+  official Svelte Flow "floating edges" pattern. ELK is loaded lazily.
+- **Floating bezier edges (official example)**: a custom `floating` edge uses
+  `useInternalNode` + the official rectangle-intersection math (ported from
+  svelteflow.dev/examples/edges/floating-edges) and draws with `getBezierPath`.
+  Edges attach to the nearest side of each card, get distinct border anchor
+  points per target (fan-out reads as one bundle splitting naturally), and
+  follow node drags natively with no static seeds or translation logic.
+  Invisible handles remain only because Svelte Flow requires handle bounds to
+  render edges; geometry ignores them.
+- **Themed canvas UI (official styles)**: `@xyflow/svelte/xy-theme.css` is
+  imported in `layout.css` with the documented layer order
+  (`@layer theme, base, xyflow, components, utilities;`), plus light-mode CSS
+  variable overrides (edge stroke, dots, controls, minimap, handles). The
+  canvas uses `forceColorMode="light"`, the official `<MiniMap>`
+  (bottom-right, pannable/zoomable), `<Controls>`, and a `<Panel>` legend
+  ("→ blocks") — the example-app look instead of hand-rolled chrome.
 - **Content-sized cards**: card height is estimated per issue in `graph.ts`
   from the same row constants `IssueNode.svelte` renders with (header 18px,
   title ≤3 lines × 17px, labels 18px, milestone 15px, heat 15px, badges 18px,
   4px gaps, 20px padding) — no fixed height, no dead space, no clipped titles.
+  Cards use `rounded-md` + `shadow-sm` to match the example aesthetic.
 - **Selection clarity**: edges touching the selected issue are emphasized
   (red-800, 2.5px) and unrelated edges dim to 25% while a drawer is open.

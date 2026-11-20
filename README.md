@@ -38,9 +38,10 @@ they exist, which drowns out real diagnostics. Also run `bun run gen` after a
 
 - `src/lib/github/` — the data layer: input parsing, dependency text parser,
   REST (anonymous) and GraphQL (PAT) loaders, localStorage cache, orchestrator.
-- `src/lib/board/` — the canvas: `graph.ts` (dagre chain layout, chain frames,
-  filters), `IssueNode.svelte`, `ChainFrame.svelte`, `BoardCanvas.svelte`
-  (Svelte Flow wrapper), `IssueDrawer.svelte`.
+- `src/lib/board/` — the canvas: `graph.ts` (ELK layout, chain frames,
+  filters), `IssueNode.svelte`, `ChainFrame.svelte`, `FloatingEdge.svelte` +
+  `floating-edge-utils.ts` (official nearest-side bezier edges),
+  `BoardCanvas.svelte` (Svelte Flow wrapper), `IssueDrawer.svelte`.
 - `src/routes/+page.svelte` — entry form (repo URL, optional PAT, initial scope).
 - `src/routes/[owner]/[repo]/` — the board route (client-only: `ssr = false`).
 - `src/routes/debug/+page.svelte` — raw data verification view.
