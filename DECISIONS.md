@@ -154,6 +154,15 @@ Step 1" can be overridden — flag it in review.
   canvas uses `forceColorMode="light"`, the official `<MiniMap>`
   (bottom-right, pannable/zoomable), `<Controls>`, and a `<Panel>` legend
   ("→ blocks") — the example-app look instead of hand-rolled chrome.
+- **Native relationships beat stale text**: GitHub-native relationships are
+  curated truth. A text-derived ref that points the OPPOSITE way of a native
+  pair is dropped at merge time (e.g. a body saying "blocked by #x" while
+  GitHub says this issue blocks #x). Extra text/task-list deps that do not
+  contradict native data are kept (that is the parser's added value).
+- **Keyword hygiene (learned twice from real data)**: bare nouns are
+  label-only — `dependencies` and `blocker(s)` match only as line labels
+  (`Blockers: #12`), never mid-sentence prose. Verb phrases (`blocked by`,
+  `depends on`, `requires`, `blocks`) remain mid-sentence keywords.
 - **Content-sized cards**: card height is estimated per issue in `graph.ts`
   from the same row constants `IssueNode.svelte` renders with (header 18px,
   title ≤3 lines × 17px, labels 18px, milestone 15px, heat 15px, badges 18px,
