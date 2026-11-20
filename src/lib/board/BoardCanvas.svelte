@@ -27,7 +27,7 @@
 
 	export function fitView(): void {
 		requestAnimationFrame(() => {
-			void flow.fitView({ padding: 0.15 });
+			void flow.fitView({ padding: 0.15, duration: 200 });
 		});
 	}
 
@@ -47,6 +47,10 @@
 		minZoom={0.1}
 		maxZoom={1.5}
 		nodesConnectable={false}
+		panOnScroll={true}
+		panOnScrollSpeed={0.6}
+		zoomOnPinch={true}
+		zoomOnDoubleClick={false}
 		onlyRenderVisibleElements
 		fitView
 		fitViewOptions={{ padding: 0.15 }}
@@ -54,6 +58,6 @@
 		{onpaneclick}
 	>
 		<Controls position="bottom-left" showZoom showFitView showLock={false} />
-		<Background variant={BackgroundVariant.Dots} gap={18} patternColor="#c7c7c7" />
+		<Background variant={BackgroundVariant.Dots} gap={18} size={1.6} patternColor="#c7c7c7" />
 	</SvelteFlow>
 </div>
