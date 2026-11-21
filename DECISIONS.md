@@ -101,42 +101,39 @@ Step 1" can be overridden — flag it in review.
   Dagre was replaced after real-data review (overlapping elbows and arrowhead
   pileups); Excalidraw was rejected (React runtime, drawing canvas rather than a
   node/edge graph).
-- **Resolved blockers** (open-only mode): shown as a compact `N resolved` footer
-  item when there is no PR or milestone to show, with the full list in the
-  drawer. Closed blockers are never drawn as nodes or edges.
-- **Linked PRs**: native linked PRs only, shown as a footer chip on the compact
-  card and as a full list in the drawer; never drawn as dependency edges.
+- **Resolved blockers** (open-only mode): muted on-card `N resolved blocker(s)`
+  badge; closed blockers are never drawn as nodes or edges.
+- **Linked PRs**: native linked PRs only, shown as chips on the card and a list
+  in the drawer; never drawn as dependency edges.
 - **Chain frames**: included — connected components become labeled
   `Chain · N issues` frame nodes; singletons are packed into a single
-  `Independent · N issues` frame (matching the issues.martonpaulo.com reference).
-- **Layout**: one ELK pass for all chains, packed to a landscape aspect;
-  independent issues packed shortest-column with adaptive columns; compact card
-  geometry (240px wide, height from 1–4 title lines). Frames are parent nodes
-  (dragging a frame moves the whole chain, children stay inside).
+  `Independent · N issues` frame.
+- **Layout**: one ELK pass for all chains, packed to a landscape component
+  aspect; independent issues packed shortest-column with adaptive columns.
+  Frames are parent nodes (dragging a frame moves the whole chain, children stay
+  inside). Card geometry remains the pre-clone 240 × 132–210 layout.
 - **Board route is client-only** (`ssr = false`): the PAT lives in
   localStorage and all fetching is browser-side.
 - **Entry flow**: home page becomes the entry form (URL + PAT + scope) and
-  navigates to `/[owner]/[repo]?scope=open|all`; the Step 1 raw-data view
-  moves to `/debug`.
-- **Comparison reference**: `niaefeup/tts` (the issues.martonpaulo.com demo)
-  is used to sanity-check chain/edge rendering against the reference graph.
+  navigates to `/[owner]/[repo]?scope=open|all`; the Step 1 raw-data view moves
+  to `/debug`.
+- **Comparison reference**: `niaefeup/tts` (the issues.martonpaulo.com demo) is
+  used to sanity-check chain/edge organization against the reference graph.
 
 ## Superseded
 
 - Step 1/early Step 2 parser decisions (text keywords, task-list deps, label
   keywords, bare-noun exclusions, native-over-stale-text precedence) are
   **superseded** by the native-only blocking relationship decision above.
-- The body-text dependency parser (`parse-deps.ts`) and its tests were
-  deleted; dependencies now come solely from GitHub's own Relationships
-  attribute, which is curated data rather than prose.
+- The body-text dependency parser (`parse-deps.ts`) and its tests were deleted;
+  dependencies now come solely from GitHub's own Relationships attribute, which
+  is curated data rather than prose.
+- The literal visual clone of issues-graph (pastel state cards, Figtree/Gabarito,
+  compact card rows, quiet header, removed MiniMap/Controls) is **superseded**:
+  the pre-clone neutral UI is back as a placeholder. Design is a later step.
 
-## Step 2 visual refinements (latest pass)
+## Step 2 layout organization (latest pass)
 
-- **Reference and stack**: `martonpaulo/issues-graph` (MIT) is the visual and
-  layout reference: React Flow + ELK, compact pastel cards, Figtree/Gabarito.
-  We keep Svelte Flow and the native-only data layer; the layout configuration
-  and visual language port directly. Excalidraw remains rejected (React
-  runtime, drawing model rather than live data cards).
 - **One ELK pass, landscape packing**: every dependency chain goes into a single
   ELK graph (`layered`, DOWN, `ORTHOGONAL`, `NETWORK_SIMPLEX`, `LAYER_SWEEP`,
   spacing 28/76/20/16, `separateConnectedComponents`, component spacing 96,
@@ -144,42 +141,24 @@ Step 1" can be overridden — flag it in review.
   stacked in source order. Loose issues use shortest-column packing with an
   adaptive column count targeting a final canvas aspect of ~1.4; the narrower
   of the chain cluster and the loose block is centered against the wider one.
-  Chain frames are drawn after layout (16px padding, 26px label strip). ELK is
-  still lazy-loaded.
-- **Compact cards**: 240px wide, 75–147px tall: header (number + state word),
-  title 1–4 lines × 17px, optional one 17px row of label chips, and a footer
-  (assignees on the left; first PR, resolved-blocker count, or milestone on the
-  right). Reactions, avatars, the old milestone row and badge rows live only in
-  the drawer. `graph.ts` height constants mirror `IssueNode.svelte` exactly; no
-  flex row may grow or shrink.
-- **State on the card surface**: blocked = amber, in progress = blue, in review
-  = teal, unassigned = white, closed = grey. The state word sits top-right, and
-  blocked appends the open/total count (`blocked · 2/3`) with a tooltip. Colour
-  is never the only signal — the state is always written.
-- **Quiet edges**: every dependency is 1.3px `#8c97a8` at 75% opacity with 7px
-  rounded corners; connected edges lift to accent blue on hover/selection and
-  unrelated edges dim to 20%. Blocked state lives on the target card, not in a
-  red stroke.
-- **Fonts and surfaces**: Figtree 400/500/600 body, Gabarito 700 display, mono
-  issue numbers; `#f3f5f8` canvas, white/pastel cards with 1px lines, 10px card
-  radius, 14px frame radius and a soft shadow. Chain frames are pale blue and
-  filled; the independent frame is dashed and unfilled. Canvas dots are 24px.
-  `@xyflow/svelte/xy-theme.css` keeps the documented layer order and light-mode
-  variable overrides. The theme's default node padding/border is reset for issue
-  and frame nodes so both components fill ELK's exact dimensions.
-- **Chrome and interaction**: one quiet 12px header row (repo, scope toggle,
-  filters, Auto-Layout, arrow legend, counts). Wheel pans (`panOnScroll`, 0.6),
-  pinch zooms, double-click zoom is disabled. The MiniMap, zoom Controls and
-  floating legend panel are removed; the header's Auto-Layout action refits and
-  the arrow legend now lives in the header.
+  Chain frames are drawn after layout and wrap the placed cards.
+- **Top-aligned rows**: ELK centres cards of different heights within a row,
+  which reads as a ragged layer. Cards are grouped by ELK's vertical centre
+  (10px tolerance) and each group is top-aligned. Grouping by the row ELK
+  actually placed a card in — rather than longest-path depth — keeps direct
+  children with an extra blocker on the same visual row.
+- **One outgoing trunk**: all edges leaving a card share a vertical exit and a
+  horizontal bus 24px below that card, then branch to their target columns.
+  Multiple arrows can still enter a target's top-centre normally. This preserves
+  every relationship while making a fan-out read as one line leaving the card.
+- **Orthogonality snapping**: ELK sometimes emits a 1px drift on a segment meant
+  to be axis-aligned; near-axis segments are snapped before repair and before
+  trunking. The crossing repair (`avoidCards`) then cannot skip a segment by
+  mistaking it for a diagonal.
 - **Edge geometry guarantee**: every card has one fixed bottom-center source
-  port and one top-center target port. After ELK routes, `avoidCards` repairs
-  any segment that would cross a card using global free corridors. Headless
-  tests check zero edge/card intersections, bottom/top anchors, rounded paths,
-  frame overlap, title overflow and drag behavior. Dragging re-anchors the
-  seeded route (stretching the final leg) instead of falling back to a straight
-  line.
-- **Superseded in this pass**: red edges / red left strip / corner counter,
-  avatar and milestone rows on cards, per-chain ELK with a vertical frame stack,
-  the floating-bezier experiment, the `Panel` legend, the MiniMap and the zoom
-  Controls.
+  port and one top-center target port. Headless tests check zero edge/card
+  intersections, exact bottom/top anchors, rounded paths, frame overlap, title
+  overflow and drag behavior. Dragging re-anchors the seeded route by stretching
+  its final leg.
+- **Not in this pass**: colours, typography, card content and chrome are the
+  pre-clone placeholder. No visual-language decisions are being made here.

@@ -7,21 +7,22 @@ import type { DepEdge, IssueRecord, RepoData } from '#lib/github';
 /** Fixed card width — node CSS must match. Heights are estimated per card (see estimateCardHeight). */
 export const CARD_WIDTH = 240;
 
-const FRAME_HEADER = 26;
-const FRAME_PAD = 16;
+const FRAME_HEADER = 30;
+const FRAME_PAD = 20;
 const BLOCK_GAP = 72;
-const INDEP_GAP = 20;
+const INDEP_GAP = 24;
 
 /** Card geometry constants shared with IssueNode.svelte — keep in sync. */
-const CARD_PAD = 8;
-const CARD_BORDER = 1;
+const CARD_PAD = 20;
 const ROW_GAP = 4;
-const HEADER_H = 16;
-const LABELS_H = 17;
-const FOOTER_H = 16;
+const HEADER_H = 18;
+const LABELS_H = 18;
+const MILESTONE_H = 15;
+const HEAT_H = 15;
+const BADGES_H = 18;
 const TITLE_LINE_H = 17;
-const TITLE_MAX_LINES = 4;
-const TITLE_CHARS_PER_LINE = 28;
+const TITLE_MAX_LINES = 3;
+const TITLE_CHARS_PER_LINE = 30;
 
 /** Landscape shape ELK packs connected components into. */
 const TARGET_ASPECT = 1.9;
@@ -29,8 +30,6 @@ const TARGET_ASPECT = 1.9;
 const BOARD_ASPECT = 1.4;
 /** Space ELK leaves between connected components. */
 const COMPONENT_GAP = 96;
-/** One quiet stroke for every dependency; state lives on the card, not the arrow. */
-const EDGE_COLOR = '#8c97a8';
 
 export const NO_MILESTONE = '__none__';
 export const UNASSIGNED = '__unassigned__';
@@ -41,14 +40,8 @@ export interface BoardFilters {
 	hasOpenPR: boolean;
 }
 
-export type IssueState = 'blocked' | 'in-progress' | 'in-review' | 'unassigned' | 'closed';
-
 export interface IssueFlowData {
 	issue: IssueRecord;
-	/** Compact state shown as a word and the card's pastel fill. */
-	state: IssueState;
-	/** Estimated title wrapping, also used as the CSS line clamp. */
-	titleLines: number;
 	/** Count of open-issue blockers (regardless of current view filters). */
 	openBlockers: number;
 	/** Closed-issue blockers that are not visible on the canvas (open-only mode). */
@@ -60,7 +53,6 @@ export interface IssueFlowData {
 export interface FrameFlowData {
 	label: string;
 	count: number;
-	kind: 'chain' | 'independent';
 	[key: string]: unknown;
 }
 
@@ -126,41 +118,35 @@ function passesFilters(issue: IssueRecord, filters: BoardFilters): boolean {
 	return true;
 }
 
-/** How many lines the title needs at the compact card width. */
-export function titleLineCount(title: string): number {
-	return Math.min(TITLE_MAX_LINES, Math.max(1, Math.ceil(title.length / TITLE_CHARS_PER_LINE)));
-}
-
-/** The footer is only worth a row when it says something the header does not. */
-function hasFooter(flow: IssueFlowData): boolean {
-	return (
-		flow.issue.assignees.length > 0 ||
-		flow.issue.linkedPRs.length > 0 ||
-		flow.resolvedBlockers > 0 ||
-		!!flow.issue.milestone
-	);
+function hasBadgeRow(flow: Pick<IssueFlowData, 'resolvedBlockers' | 'issue'>): boolean {
+	return flow.resolvedBlockers > 0 || flow.issue.linkedPRs.length > 0;
 }
 
 /**
  * Estimated card height: mirrors IssueNode's fixed row heights so ELK positions
  * match the rendered card and no dead space or clipping appears.
- *
- * Compact anatomy: header row, title (1–4 lines), optional one label row, optional
- * footer. Rows are counted rather than hard-coded so the two stay in sync.
  */
 export function estimateCardHeight(flow: IssueFlowData): number {
-	const labels = flow.issue.labels.length > 0 ? 1 : 0;
-	const footer = hasFooter(flow) ? 1 : 0;
-	const gaps = 1 + labels + footer;
-	return (
-		CARD_PAD * 2 +
-		CARD_BORDER * 2 +
-		HEADER_H +
-		flow.titleLines * TITLE_LINE_H +
-		labels * LABELS_H +
-		footer * FOOTER_H +
-		gaps * ROW_GAP
+	const titleLines = Math.min(
+		TITLE_MAX_LINES,
+		Math.max(1, Math.ceil(flow.issue.title.length / TITLE_CHARS_PER_LINE))
 	);
+	let contentHeight = HEADER_H + titleLines * TITLE_LINE_H + HEAT_H;
+	let rows = 3;
+	if (flow.issue.labels.length > 0) {
+		contentHeight += LABELS_H;
+		rows++;
+	}
+	if (flow.issue.milestone) {
+		contentHeight += MILESTONE_H;
+		rows++;
+	}
+	if (hasBadgeRow(flow)) {
+		contentHeight += BADGES_H;
+		rows++;
+	}
+	const estimated = CARD_PAD + contentHeight + (rows - 1) * ROW_GAP + 8;
+	return Math.max(132, Math.min(210, estimated));
 }
 
 /** Union-find over visible dependency edges. */
@@ -267,6 +253,20 @@ function segmentHitsRect(a: Pt, b: Pt, r: Rect): boolean {
 
 function allClear(pieces: [Pt, Pt][], obstacles: Rect[]): boolean {
 	return pieces.every(([a, b]) => !obstacles.some((r) => segmentHitsRect(a, b, r)));
+}
+
+/** ELK occasionally emits a 1px drift on a segment meant to be axis-aligned. */
+function snapOrthogonal(points: Pt[]): Pt[] {
+	const out = points.map((p) => ({ ...p }));
+	for (let i = 1; i < out.length - 1; i++) {
+		const prev = out[i - 1];
+		const cur = out[i];
+		const dx = Math.abs(cur.x - prev.x);
+		const dy = Math.abs(cur.y - prev.y);
+		if (dx > 0.01 && dx < 1.5) cur.x = prev.x;
+		else if (dy > 0.01 && dy < 1.5) cur.y = prev.y;
+	}
+	return dedupePoints(out);
 }
 
 function piecesOf(points: Pt[]): [Pt, Pt][] {
@@ -513,9 +513,60 @@ async function layoutChains(
 		if (pos && size) rectById.set(n, { x: pos.x, y: pos.y, w: size.width, h: size.height });
 	}
 
+	const componentEdges: DepEdge[][] = chains.map(() => []);
+	for (const edge of chainEdges) {
+		const component = componentOf.get(edge.from);
+		if (component !== undefined) componentEdges[component].push(edge);
+	}
+
+	// ELK centres nodes of different heights inside a layer. That reads as a
+	// ragged row. Keep every card in a layer top-aligned instead.
+	chains.forEach((group) => {
+		// Group by the row ELK actually placed a card in (vertical centre),
+		// not by longest-path depth: a card with an extra blocker can still
+		// belong on the same visual row as its siblings.
+		const rows: number[][] = [];
+		const ordered = [...group].sort((a, b) => {
+			const aPos = positions.get(a);
+			const bPos = positions.get(b);
+			const aSize = sizes.get(a);
+			const bSize = sizes.get(b);
+			const aCenter = (aPos?.y ?? 0) + (aSize?.height ?? 0) / 2;
+			const bCenter = (bPos?.y ?? 0) + (bSize?.height ?? 0) / 2;
+			return aCenter - bCenter;
+		});
+		for (const n of ordered) {
+			const pos = positions.get(n);
+			const size = sizes.get(n);
+			if (!pos || !size) continue;
+			const center = pos.y + size.height / 2;
+			const row = rows[rows.length - 1];
+			if (row) {
+				const firstPos = positions.get(row[0]);
+				const firstSize = sizes.get(row[0]);
+				const firstCenter = (firstPos?.y ?? 0) + (firstSize?.height ?? 0) / 2;
+				if (Math.abs(center - firstCenter) < 10) {
+					row.push(n);
+					continue;
+				}
+			}
+			rows.push([n]);
+		}
+		for (const row of rows) {
+			const top = Math.min(...row.map((n) => positions.get(n)?.y ?? 0));
+			for (const n of row) {
+				const pos = positions.get(n);
+				if (!pos) continue;
+				pos.y = top;
+				const rect = rectById.get(n);
+				if (rect) rect.y = top;
+			}
+		}
+	});
+
 	const edgePoints = chains.map(() => new Map<string, Pt[]>());
 	for (const edge of laid.edges ?? []) {
-		const points: Pt[] = [];
+		let points: Pt[] = [];
 		for (const section of edge.sections ?? []) {
 			points.push({ x: section.startPoint.x, y: section.startPoint.y });
 			for (const bend of section.bendPoints ?? []) points.push({ x: bend.x, y: bend.y });
@@ -528,11 +579,81 @@ async function layoutChains(
 		const to = Number(toPart);
 		const component = componentOf.get(from);
 		if (component === undefined) continue;
+		const fromPos = positions.get(from);
+		const fromSize = sizes.get(from);
+		const toPos = positions.get(to);
+		const toSize = sizes.get(to);
+		if (!fromPos || !fromSize || !toPos || !toSize) continue;
+		const snapped = snapOrthogonal(points);
+		const start = { x: fromPos.x + fromSize.width / 2, y: fromPos.y + fromSize.height };
+		const end = { x: toPos.x + toSize.width / 2, y: toPos.y };
+		snapped[0] = start;
+		snapped[snapped.length - 1] = end;
+		points = snapped;
+		if (points.length > 2 && Math.abs(points[1].x - start.x) < 2) {
+			points[1].x = start.x;
+			points[1].y = Math.max(points[1].y, start.y + 8);
+		}
+		if (points.length > 2 && Math.abs(points[points.length - 2].x - end.x) < 2) {
+			const penultimate = points[points.length - 2];
+			penultimate.x = end.x;
+			penultimate.y = Math.min(penultimate.y, end.y - 8);
+		}
 		const obstacles = [...rectById.entries()]
 			.filter(([id]) => id !== from && id !== to)
 			.map(([, rect]) => rect);
 		edgePoints[component].set(key, avoidCards(points, obstacles));
 	}
+
+	// One trunk per source: every outgoing edge leaves the card on the same
+	// vertical, runs on one horizontal bus, and only then branches to its target
+	// column. Multiple arrows still enter their targets normally.
+	const outgoing = chains.map(() => new Map<number, string[]>());
+	for (const edge of chainEdges) {
+		const component = componentOf.get(edge.from);
+		if (component === undefined) continue;
+		const list = outgoing[component].get(edge.from) ?? [];
+		list.push(`${edge.from}->${edge.to}`);
+		outgoing[component].set(edge.from, list);
+	}
+	chains.forEach((_group, component) => {
+		for (const [from, keys] of outgoing[component]) {
+			if (keys.length < 2) continue;
+			const sourceY = edgePoints[component].get(keys[0])?.[0]?.y;
+			if (sourceY === undefined) continue;
+			const busY = sourceY + 24;
+			for (const key of keys) {
+				const original = edgePoints[component].get(key);
+				if (!original || original.length < 2) continue;
+				const sx = original[0].x;
+				let branch = -1;
+				for (let i = 1; i < original.length; i++) {
+					if (Math.abs(original[i].x - sx) > 2) {
+						branch = i;
+						break;
+					}
+				}
+				let candidate: Pt[];
+				if (branch === -1) {
+					if (original.length !== 2) continue;
+					candidate = [original[0], { x: sx, y: busY }, original[1]];
+				} else {
+					candidate = [
+						original[0],
+						{ x: sx, y: busY },
+						{ x: original[branch].x, y: busY },
+						...original.slice(branch + 1)
+					];
+				}
+				const target = Number(key.split('->')[1]);
+				const obstacles = [...rectById.entries()]
+					.filter(([id]) => id !== from && id !== target)
+					.map(([, rect]) => rect);
+				const cleaned = dedupePoints(candidate);
+				if (allClear(piecesOf(cleaned), obstacles)) edgePoints[component].set(key, cleaned);
+			}
+		}
+	});
 
 	return chains.map((group, component) => {
 		let minX = Number.POSITIVE_INFINITY;
@@ -574,7 +695,6 @@ interface FrameLayout {
 	id: string;
 	label: string;
 	count: number;
-	kind: 'chain' | 'independent';
 	x: number;
 	y: number;
 	w: number;
@@ -604,24 +724,11 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 			if (target.issue.state === 'open') openBlockers++;
 			else if (!visibleSet.has(target.issue.number)) resolvedBlockers++;
 		}
-		const hasOpenPR = issue.linkedPRs.some((pr) => pr.state === 'open');
-		const state: IssueState =
-			issue.state === 'closed'
-				? 'closed'
-				: openBlockers > 0
-					? 'blocked'
-					: hasOpenPR
-						? 'in-review'
-						: issue.assignees.length > 0
-							? 'in-progress'
-							: 'unassigned';
 		return {
 			issue,
-			state,
-			titleLines: titleLineCount(issue.title),
 			openBlockers,
 			resolvedBlockers,
-			hasOpenPR
+			hasOpenPR: issue.linkedPRs.some((pr) => pr.state === 'open')
 		};
 	};
 
@@ -645,7 +752,6 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 		id: `chain-${index}`,
 		label: `Chain · ${layout.members.length} issues`,
 		count: layout.members.length,
-		kind: 'chain',
 		x: layout.frame.x,
 		y: layout.frame.y,
 		w: layout.frame.w,
@@ -707,7 +813,6 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 			id: 'chain-independent',
 			label: `Independent · ${singles.length} issues`,
 			count: singles.length,
-			kind: 'independent',
 			x: -FRAME_PAD,
 			y: blockY - FRAME_PAD - FRAME_HEADER,
 			w: contentWidth + FRAME_PAD * 2,
@@ -723,8 +828,8 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 	// Center the narrower block against the wider one: a 14-column independent
 	// grid should not leave the chains stranded in the top-left corner.
 	let chainShiftX = 0;
-	const chainFrames = frames.filter((frame) => frame.kind === 'chain');
-	const independentFrame = frames.find((frame) => frame.kind === 'independent');
+	const chainFrames = frames.filter((frame) => frame.id !== 'chain-independent');
+	const independentFrame = frames.find((frame) => frame.id === 'chain-independent');
 	if (chainFrames.length > 0 && independentFrame) {
 		const chainLeft = Math.min(...chainFrames.map((frame) => frame.x));
 		const chainRight = Math.max(...chainFrames.map((frame) => frame.x + frame.w));
@@ -752,7 +857,7 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 			width: frame.w,
 			height: frame.h,
 			style: `width:${frame.w}px;height:${frame.h}px`,
-			data: { label: frame.label, count: frame.count, kind: frame.kind },
+			data: { label: frame.label, count: frame.count },
 			draggable: true,
 			selectable: false
 		});
@@ -783,6 +888,9 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 			if (!members.has(edge.from) || !members.has(edge.to)) continue;
 			const points = layout.edgePoints.get(`${edge.from}->${edge.to}`);
 			if (!points) continue;
+			const blocked = dataByNumber.get(edge.to);
+			const blocking = !!blocked && blocked.issue.state === 'open' && blocked.openBlockers > 0;
+			const color = blocking ? '#ef4444' : '#a3a3a3';
 			edges.push({
 				id: `edge-${edge.from}-${edge.to}`,
 				source: `issue-${edge.from}`,
@@ -794,8 +902,8 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 						y: p.y - offsetY
 					}))
 				},
-				markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: EDGE_COLOR },
-				style: `stroke: ${EDGE_COLOR}; stroke-width: 1.3; opacity: 0.75;`
+				markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color },
+				style: `stroke: ${color}; stroke-width: 1.5;`
 			});
 		}
 	});

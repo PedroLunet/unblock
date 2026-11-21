@@ -2,7 +2,10 @@
 	import {
 		Background,
 		BackgroundVariant,
+		Controls,
 		MarkerType,
+		MiniMap,
+		Panel,
 		SvelteFlow,
 		useSvelteFlow
 	} from '@xyflow/svelte';
@@ -42,16 +45,16 @@
 			if (connected) {
 				return {
 					...edge,
-					style: 'stroke: #3a5cf0; stroke-width: 2;',
+					style: 'stroke: #991b1b; stroke-width: 2.5;',
 					markerEnd: {
 						type: MarkerType.ArrowClosed,
-						width: 14,
-						height: 14,
-						color: '#3a5cf0'
+						width: 16,
+						height: 16,
+						color: '#991b1b'
 					}
 				};
 			}
-			return { ...edge, style: `${edge.style ?? ''} opacity: 0.2;` };
+			return { ...edge, style: `${edge.style ?? ''} opacity: 0.25;` };
 		});
 	});
 
@@ -76,7 +79,7 @@
 		{nodeTypes}
 		{edgeTypes}
 		minZoom={0.1}
-		maxZoom={2}
+		maxZoom={1.5}
 		nodesConnectable={false}
 		panOnScroll={true}
 		panOnScrollSpeed={0.6}
@@ -84,11 +87,20 @@
 		zoomOnDoubleClick={false}
 		onlyRenderVisibleElements
 		fitView
-		fitViewOptions={{ padding: 0.12 }}
+		fitViewOptions={{ padding: 0.15 }}
 		forceColorMode="light"
 		onnodeclick={handleNodeClick}
 		{onpaneclick}
 	>
-		<Background variant={BackgroundVariant.Dots} gap={24} size={1.2} patternColor="#d4dae2" />
+		<Panel position="top-left">
+			<div
+				class="flex items-center gap-2 border border-neutral-300 bg-white/95 px-2.5 py-1.5 text-[11px] text-neutral-700"
+			>
+				<span class="inline-block w-5 border-t-2 border-red-500"></span> blocks
+			</div>
+		</Panel>
+		<Controls position="bottom-left" showZoom showFitView showLock={false} />
+		<MiniMap position="bottom-right" pannable zoomable nodeStrokeWidth={0} />
+		<Background variant={BackgroundVariant.Dots} gap={18} size={1.6} patternColor="#c7c7c7" />
 	</SvelteFlow>
 </div>
