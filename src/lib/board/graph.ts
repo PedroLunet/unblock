@@ -429,12 +429,52 @@ interface ChainLayout {
 	edgePoints: Map<string, Pt[]>;
 	/** Bottom-edge fraction each edge leaves from (0.5 is the centre). */
 	edgeSourcePort: Map<string, number>;
+	/** Top-edge fraction each edge enters at (0.5 is the centre). */
+	edgeTargetPort: Map<string, number>;
 	frame: Rect;
 }
 
 interface PortSpec {
 	id: string;
 	x: number;
+}
+
+/**
+ * A fan-in edge leaves ELK at the target centre. Move its final approach to a
+ * distinct top port, using a horizontal lane just above the target row when the
+ * direct vertical would pass through a card above the target.
+ */
+function approachTarget(
+	points: Pt[],
+	target: Rect,
+	fraction: number,
+	obstacles: Rect[]
+): Pt[] | null {
+	if (Math.abs(fraction - 0.5) < 0.001 || points.length < 3) return null;
+	const last = points[points.length - 1];
+	const penultimate = points[points.length - 2];
+	if (Math.abs(penultimate.x - last.x) > 1.5) return null;
+	const portX = target.x + target.w * fraction;
+	const base = points.slice(0, -1);
+	const lanes = [
+		penultimate.y,
+		target.y - 12,
+		target.y - 20,
+		target.y - 28,
+		target.y - 36,
+		target.y - 44
+	];
+	for (const lane of lanes) {
+		if (lane >= target.y - 2) continue;
+		const candidate = dedupePoints([
+			...base,
+			{ x: penultimate.x, y: lane },
+			{ x: portX, y: lane },
+			{ x: portX, y: target.y }
+		]);
+		if (candidate.length >= 2 && allClear(piecesOf(candidate), obstacles)) return candidate;
+	}
+	return null;
 }
 
 /**
@@ -635,6 +675,33 @@ async function layoutChains(
 		}
 	});
 
+	// Incoming edges keep ELK's single top port for layout, but each one gets
+	// its own render-time entry point. Redistributing target ports inside ELK
+	// destabilised component packing, so only the final approach is changed.
+	const incoming = new Map<number, DepEdge[]>();
+	for (const edge of chainEdges) {
+		const list = incoming.get(edge.to) ?? [];
+		list.push(edge);
+		incoming.set(edge.to, list);
+	}
+	const edgeTargetPort = new Map<string, number>();
+	for (const edge of chainEdges) edgeTargetPort.set(keyOf(edge), 0.5);
+	for (const list of incoming.values()) {
+		if (list.length < 2) continue;
+		const sorted = list.slice().sort((a, b) => {
+			const ax =
+				(positions.get(a.from)?.x ?? 0) +
+				(sizes.get(a.from)?.width ?? 0) * (edgeSourcePort.get(keyOf(a)) ?? 0.5);
+			const bx =
+				(positions.get(b.from)?.x ?? 0) +
+				(sizes.get(b.from)?.width ?? 0) * (edgeSourcePort.get(keyOf(b)) ?? 0.5);
+			return ax - bx || a.from - b.from;
+		});
+		sorted.forEach((edge, index) => {
+			edgeTargetPort.set(keyOf(edge), (index + 1) / (sorted.length + 1));
+		});
+	}
+
 	const edgePoints = chains.map(() => new Map<string, Pt[]>());
 	for (const edge of laid.edges ?? []) {
 		let points: Pt[] = [];
@@ -673,7 +740,18 @@ async function layoutChains(
 		const obstacles = [...rectById.entries()]
 			.filter(([id]) => id !== from && id !== to)
 			.map(([, rect]) => rect);
-		edgePoints[component].set(key, avoidCards(points, obstacles));
+		const repaired = avoidCards(points, obstacles);
+		const targetRect = rectById.get(to);
+		const targetFraction = edgeTargetPort.get(key) ?? 0.5;
+		const adjusted = targetRect
+			? approachTarget(repaired, targetRect, targetFraction, obstacles)
+			: null;
+		if (adjusted) {
+			edgePoints[component].set(key, adjusted);
+		} else {
+			edgePoints[component].set(key, repaired);
+			if (targetFraction !== 0.5) edgeTargetPort.set(key, 0.5);
+		}
 	}
 
 	return chains.map((group, component) => {
@@ -703,6 +781,7 @@ async function layoutChains(
 			positions,
 			edgePoints: edgePoints[component],
 			edgeSourcePort,
+			edgeTargetPort,
 			frame: {
 				x: minX - FRAME_PAD,
 				y: minY - FRAME_PAD - FRAME_HEADER,
@@ -923,7 +1002,8 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 						x: p.x - offsetX + chainShiftX,
 						y: p.y - offsetY
 					})),
-					sourcePort: layout.edgeSourcePort.get(`${edge.from}->${edge.to}`) ?? 0.5
+					sourcePort: layout.edgeSourcePort.get(`${edge.from}->${edge.to}`) ?? 0.5,
+					targetPort: layout.edgeTargetPort.get(`${edge.from}->${edge.to}`) ?? 0.5
 				},
 				markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color },
 				style: `stroke: ${color}; stroke-width: 1.5;`

@@ -147,11 +147,15 @@ Step 1" can be overridden — flag it in review.
   (10px tolerance) and each group is top-aligned. Grouping by the row ELK
   actually placed a card in — rather than longest-path depth — keeps direct
   children with an extra blocker on the same visual row.
-- **Distributed outgoing ports**: a card with one outgoing edge keeps the
-  bottom-centre exit. A card with several outgoing edges gets one bottom port per
-  edge, spread evenly across the bottom and ordered left-to-right by the target's
-  x. Fan-out therefore reads as several independent arrows, not one line.
-  Multiple incoming arrows still converge at the target's top-centre.
+- **Distributed ports on both sides**: a card with one outgoing edge keeps the
+  bottom-centre exit; several outgoing edges get one bottom port each, spread
+  evenly and ordered left-to-right by the target's x. A card with one incoming
+  edge keeps the top-centre entry; several incoming edges get one top port each,
+  ordered by the source's x. Target ports are applied at render time, not inside
+  ELK, so the layout is unchanged. Each incoming edge gets a validated approach
+  lane just above the target row; if that lane would cross a card, the edge falls
+  back to the centre instead of clipping the card. No arrows join at a shared
+  target point.
 - **Orthogonality snapping**: ELK sometimes emits a 1px drift on a segment meant
   to be axis-aligned; near-axis segments are snapped before repair. The crossing
   repair (`avoidCards`) then cannot skip a segment by mistaking it for a
@@ -160,18 +164,22 @@ Step 1" can be overridden — flag it in review.
   ELK's already-reserved routes and the zero edge/card guarantee; dynamic
   rerouting on drag was deliberately deferred. Pan, zoom and selection still
   work; Auto-Layout refits.
-- **Edge geometry guarantee**: every target has one top-centre port; source ports
-  are bottom-centre for a single edge and distributed along the bottom edge for a
-  fan-out. Headless tests check zero edge/card intersections, bottom-edge/top-
-  centre anchors, distinct fan-out starts, rounded paths, frame overlap and title
-  overflow. A drag attempt leaves node positions and edge paths unchanged.
+- **Edge geometry guarantee**: source ports are bottom-centre for a single edge
+  and distributed along the bottom edge for a fan-out; target ports are
+  top-centre for a single edge and distributed along the top edge for a fan-in.
+  Headless tests check zero edge/card intersections, bottom-edge/top-edge
+  anchors, distinct fan-in and fan-out ports, no shared edge segments, rounded
+  paths, frame overlap and title overflow. A drag attempt leaves node positions
+  and edge paths unchanged.
 - **Edge-edge crossings**: minimized, not guaranteed. On the 117-issue tts
   graph there is exactly one: `866→874` crosses `872→875` because the sources
   are ordered `866 < 872` while the targets are ordered `874 > 875`. Removing it
   requires reordering that row or a long detour, and either can create a
-  different crossing. Distributing target ports (separate top ports per incoming
-  edge) was tried and reverted: it did not remove this structural crossing and
-  destabilised component packing/frames. Edge/card crossings remain zero.
+  different crossing. Distributing target ports inside ELK was tried and
+  reverted (it destabilised component packing/frames); the ports are now applied
+  at render time with a validated approach lane, which removes the joining and
+  all shared segments without changing the layout. This one crossing remains;
+  edge/card crossings are zero.
 - **Layout benchmark**: on the 117-issue tts graph, `NETWORK_SIMPLEX` vs
   `BRANDES_KOEPF` and higher thoroughness were identical; `INTERACTIVE` produced
   31 edge-edge crossings and 2.3× the edge length; wrapping and post-compaction

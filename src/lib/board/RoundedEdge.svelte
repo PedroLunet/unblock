@@ -40,13 +40,15 @@
 	const path = $derived.by(() => {
 		const s = sourceNode.current;
 		const t = targetNode.current;
-		const seedData = data as { points?: Pt[]; sourcePort?: number } | undefined;
+		const seedData = data as
+			{ points?: Pt[]; sourcePort?: number; targetPort?: number } | undefined;
 		const sourcePort = seedData?.sourcePort ?? 0.5;
+		const targetPort = seedData?.targetPort ?? 0.5;
 		const seeded: Pt[] = seedData?.points ?? [];
 		if (!s || !t || seeded.length < 2) return '';
 		const sx = s.internals.positionAbsolute.x + (s.measured.width ?? 0) * sourcePort;
 		const sy = s.internals.positionAbsolute.y + (s.measured.height ?? 0);
-		const tx = t.internals.positionAbsolute.x + (t.measured.width ?? 0) / 2;
+		const tx = t.internals.positionAbsolute.x + (t.measured.width ?? 0) * targetPort;
 		const ty = t.internals.positionAbsolute.y;
 		const dx = sx - seeded[0].x;
 		const dy = sy - seeded[0].y;
