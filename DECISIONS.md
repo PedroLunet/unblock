@@ -147,17 +147,19 @@ Step 1" can be overridden — flag it in review.
   (10px tolerance) and each group is top-aligned. Grouping by the row ELK
   actually placed a card in — rather than longest-path depth — keeps direct
   children with an extra blocker on the same visual row.
-- **One outgoing trunk**: all edges leaving a card share a vertical exit and a
-  horizontal bus 24px below that card, then branch to their target columns.
-  Multiple arrows can still enter a target's top-centre normally. This preserves
-  every relationship while making a fan-out read as one line leaving the card.
+- **Distributed outgoing ports**: a card with one outgoing edge keeps the
+  bottom-centre exit. A card with several outgoing edges gets one bottom port per
+  edge, spread evenly across the bottom and ordered left-to-right by the target's
+  x. Fan-out therefore reads as several independent arrows, not one line.
+  Multiple incoming arrows still converge at the target's top-centre.
 - **Orthogonality snapping**: ELK sometimes emits a 1px drift on a segment meant
-  to be axis-aligned; near-axis segments are snapped before repair and before
-  trunking. The crossing repair (`avoidCards`) then cannot skip a segment by
-  mistaking it for a diagonal.
-- **Edge geometry guarantee**: every card has one fixed bottom-center source
-  port and one top-center target port. Headless tests check zero edge/card
-  intersections, exact bottom/top anchors, rounded paths, frame overlap, title
+  to be axis-aligned; near-axis segments are snapped before repair. The crossing
+  repair (`avoidCards`) then cannot skip a segment by mistaking it for a
+  diagonal.
+- **Edge geometry guarantee**: every target has one top-centre port; source ports
+  are bottom-centre for a single edge and distributed along the bottom edge for a
+  fan-out. Headless tests check zero edge/card intersections, bottom-edge/top-
+  centre anchors, distinct fan-out starts, rounded paths, frame overlap, title
   overflow and drag behavior. Dragging re-anchors the seeded route by stretching
   its final leg.
 - **Not in this pass**: colours, typography, card content and chrome are the

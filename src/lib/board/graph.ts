@@ -211,11 +211,6 @@ const ELK_LAYOUT_OPTIONS: Record<string, string> = {
 	'elk.aspectRatio': String(TARGET_ASPECT)
 };
 
-/** Edges always leave the bottom-center and enter the top-center of a card. */
-function portFor(node: number, side: 'in' | 'out'): string {
-	return `${side}-${node}`;
-}
-
 interface Pt {
 	x: number;
 	y: number;
@@ -434,7 +429,14 @@ interface ChainLayout {
 	positions: Map<number, Pt>;
 	/** Global routed polylines, keyed `from->to`. */
 	edgePoints: Map<string, Pt[]>;
+	/** Bottom-edge fraction each edge leaves from (0.5 is the centre). */
+	edgeSourcePort: Map<string, number>;
 	frame: Rect;
+}
+
+interface PortSpec {
+	id: string;
+	x: number;
 }
 
 /**
@@ -442,6 +444,11 @@ interface ChainLayout {
  * lets ELK pack the chains against a landscape aspect ratio instead of stacking
  * them vertically, which is what keeps a 117-issue backlog from opening as a
  * tall strip.
+ *
+ * Fan-out edges get their own source port along the card's bottom edge. A first
+ * pass establishes where the targets land, then each card's outgoing ports are
+ * ordered left-to-right by target x so the fan does not cross itself. A single
+ * outgoing edge keeps the bottom-centre port.
  */
 async function layoutChains(
 	chains: number[][],
@@ -456,49 +463,117 @@ async function layoutChains(
 		for (const n of group) componentOf.set(n, index);
 	});
 	const chainEdges = edges.filter((e) => memberSet.has(e.from) && memberSet.has(e.to));
+	const keyOf = (e: DepEdge): string => `${e.from}->${e.to}`;
 
-	const graph: ElkNode = {
+	const outgoing = new Map<number, DepEdge[]>();
+	for (const edge of chainEdges) {
+		const list = outgoing.get(edge.from) ?? [];
+		list.push(edge);
+		outgoing.set(edge.from, list);
+	}
+
+	const buildGraph = (
+		sourcePorts: Map<number, PortSpec[]>,
+		edgePorts: Map<string, string>
+	): ElkNode => ({
 		id: 'root',
 		layoutOptions: ELK_LAYOUT_OPTIONS,
 		children: members.flatMap((n) => {
 			const size = sizes.get(n);
 			if (!size) return [];
+			const ports = (sourcePorts.get(n) ?? []).map((port) => ({
+				id: port.id,
+				x: port.x,
+				y: size.height,
+				width: 1,
+				height: 1,
+				layoutOptions: { 'elk.port.side': 'SOUTH' }
+			}));
+			ports.push({
+				id: `in-${n}`,
+				x: size.width / 2,
+				y: 0,
+				width: 1,
+				height: 1,
+				layoutOptions: { 'elk.port.side': 'NORTH' }
+			});
 			return [
 				{
 					id: `issue-${n}`,
 					width: size.width,
 					height: size.height,
 					layoutOptions: { 'elk.portConstraints': 'FIXED_POS' },
-					ports: [
-						{
-							id: portFor(n, 'out'),
-							x: size.width / 2,
-							y: size.height,
-							width: 1,
-							height: 1,
-							layoutOptions: { 'elk.port.side': 'SOUTH' }
-						},
-						{
-							id: portFor(n, 'in'),
-							x: size.width / 2,
-							y: 0,
-							width: 1,
-							height: 1,
-							layoutOptions: { 'elk.port.side': 'NORTH' }
-						}
-					]
+					ports
 				}
 			];
 		}),
 		edges: chainEdges.map((e) => ({
 			id: `edge-${e.from}-${e.to}`,
-			sources: [portFor(e.from, 'out')],
-			targets: [portFor(e.to, 'in')]
+			sources: [edgePorts.get(keyOf(e)) ?? `out-${e.from}`],
+			targets: [`in-${e.to}`]
 		}))
-	};
+	});
 
 	const elk = await getElk();
-	const laid = await elk.layout(graph);
+
+	// Pass one: one centre port per card, just to learn the target columns.
+	const firstPorts = new Map<number, PortSpec[]>();
+	const firstEdgePorts = new Map<string, string>();
+	for (const n of members) {
+		const size = sizes.get(n);
+		if (!size) continue;
+		firstPorts.set(n, [{ id: `out-${n}`, x: size.width / 2 }]);
+	}
+	for (const edge of chainEdges) firstEdgePorts.set(keyOf(edge), `out-${edge.from}`);
+	const firstLaid = await elk.layout(buildGraph(firstPorts, firstEdgePorts));
+	const firstPositions = new Map<number, Pt>();
+	for (const child of firstLaid.children ?? []) {
+		const n = Number(child.id.replace('issue-', ''));
+		if (!Number.isFinite(n)) continue;
+		firstPositions.set(n, { x: child.x ?? 0, y: child.y ?? 0 });
+	}
+
+	// Pass two: distribute each card's outgoing ports across its bottom edge.
+	const sourcePorts = new Map<number, PortSpec[]>();
+	const edgePorts = new Map<string, string>();
+	const edgeSourcePort = new Map<string, number>();
+	const hasFanOut = [...outgoing.values()].some((list) => list.length > 1);
+	if (!hasFanOut) {
+		for (const n of members) {
+			const size = sizes.get(n);
+			if (!size) continue;
+			sourcePorts.set(n, [{ id: `out-${n}`, x: size.width / 2 }]);
+		}
+		for (const edge of chainEdges) {
+			edgePorts.set(keyOf(edge), `out-${edge.from}`);
+			edgeSourcePort.set(keyOf(edge), 0.5);
+		}
+	} else {
+		for (const n of members) {
+			const size = sizes.get(n);
+			if (!size) continue;
+			const list = outgoing.get(n) ?? [];
+			if (list.length === 0) {
+				sourcePorts.set(n, []);
+				continue;
+			}
+			const sorted = list.slice().sort((a, b) => {
+				const ax = firstPositions.get(a.to)?.x ?? 0;
+				const bx = firstPositions.get(b.to)?.x ?? 0;
+				return ax - bx || a.to - b.to;
+			});
+			const ports = sorted.map((edge, index) => {
+				const fraction = (index + 1) / (sorted.length + 1);
+				edgePorts.set(keyOf(edge), `out-${n}-${index}`);
+				edgeSourcePort.set(keyOf(edge), fraction);
+				return { id: `out-${n}-${index}`, x: size.width * fraction };
+			});
+			sourcePorts.set(n, ports);
+		}
+	}
+
+	const laid = hasFanOut ? await elk.layout(buildGraph(sourcePorts, edgePorts)) : firstLaid;
+
 	const positions = new Map<number, Pt>();
 	for (const child of laid.children ?? []) {
 		const n = Number(child.id.replace('issue-', ''));
@@ -519,12 +594,10 @@ async function layoutChains(
 		if (component !== undefined) componentEdges[component].push(edge);
 	}
 
-	// ELK centres nodes of different heights inside a layer. That reads as a
-	// ragged row. Keep every card in a layer top-aligned instead.
+	// ELK centres cards of different heights inside a layer. That reads as a
+	// ragged row. Group by the row ELK actually placed a card in (vertical
+	// centre), then top-align each row.
 	chains.forEach((group) => {
-		// Group by the row ELK actually placed a card in (vertical centre),
-		// not by longest-path depth: a card with an extra blocker can still
-		// belong on the same visual row as its siblings.
 		const rows: number[][] = [];
 		const ordered = [...group].sort((a, b) => {
 			const aPos = positions.get(a);
@@ -584,12 +657,12 @@ async function layoutChains(
 		const toPos = positions.get(to);
 		const toSize = sizes.get(to);
 		if (!fromPos || !fromSize || !toPos || !toSize) continue;
-		const snapped = snapOrthogonal(points);
-		const start = { x: fromPos.x + fromSize.width / 2, y: fromPos.y + fromSize.height };
+		const fraction = edgeSourcePort.get(key) ?? 0.5;
+		const start = { x: fromPos.x + fromSize.width * fraction, y: fromPos.y + fromSize.height };
 		const end = { x: toPos.x + toSize.width / 2, y: toPos.y };
-		snapped[0] = start;
-		snapped[snapped.length - 1] = end;
-		points = snapped;
+		points = snapOrthogonal(points);
+		points[0] = start;
+		points[points.length - 1] = end;
 		if (points.length > 2 && Math.abs(points[1].x - start.x) < 2) {
 			points[1].x = start.x;
 			points[1].y = Math.max(points[1].y, start.y + 8);
@@ -604,56 +677,6 @@ async function layoutChains(
 			.map(([, rect]) => rect);
 		edgePoints[component].set(key, avoidCards(points, obstacles));
 	}
-
-	// One trunk per source: every outgoing edge leaves the card on the same
-	// vertical, runs on one horizontal bus, and only then branches to its target
-	// column. Multiple arrows still enter their targets normally.
-	const outgoing = chains.map(() => new Map<number, string[]>());
-	for (const edge of chainEdges) {
-		const component = componentOf.get(edge.from);
-		if (component === undefined) continue;
-		const list = outgoing[component].get(edge.from) ?? [];
-		list.push(`${edge.from}->${edge.to}`);
-		outgoing[component].set(edge.from, list);
-	}
-	chains.forEach((_group, component) => {
-		for (const [from, keys] of outgoing[component]) {
-			if (keys.length < 2) continue;
-			const sourceY = edgePoints[component].get(keys[0])?.[0]?.y;
-			if (sourceY === undefined) continue;
-			const busY = sourceY + 24;
-			for (const key of keys) {
-				const original = edgePoints[component].get(key);
-				if (!original || original.length < 2) continue;
-				const sx = original[0].x;
-				let branch = -1;
-				for (let i = 1; i < original.length; i++) {
-					if (Math.abs(original[i].x - sx) > 2) {
-						branch = i;
-						break;
-					}
-				}
-				let candidate: Pt[];
-				if (branch === -1) {
-					if (original.length !== 2) continue;
-					candidate = [original[0], { x: sx, y: busY }, original[1]];
-				} else {
-					candidate = [
-						original[0],
-						{ x: sx, y: busY },
-						{ x: original[branch].x, y: busY },
-						...original.slice(branch + 1)
-					];
-				}
-				const target = Number(key.split('->')[1]);
-				const obstacles = [...rectById.entries()]
-					.filter(([id]) => id !== from && id !== target)
-					.map(([, rect]) => rect);
-				const cleaned = dedupePoints(candidate);
-				if (allClear(piecesOf(cleaned), obstacles)) edgePoints[component].set(key, cleaned);
-			}
-		}
-	});
 
 	return chains.map((group, component) => {
 		let minX = Number.POSITIVE_INFINITY;
@@ -681,6 +704,7 @@ async function layoutChains(
 			members: group,
 			positions,
 			edgePoints: edgePoints[component],
+			edgeSourcePort,
 			frame: {
 				x: minX - FRAME_PAD,
 				y: minY - FRAME_PAD - FRAME_HEADER,
@@ -900,7 +924,8 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 					points: points.map((p) => ({
 						x: p.x - offsetX + chainShiftX,
 						y: p.y - offsetY
-					}))
+					})),
+					sourcePort: layout.edgeSourcePort.get(`${edge.from}->${edge.to}`) ?? 0.5
 				},
 				markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color },
 				style: `stroke: ${color}; stroke-width: 1.5;`
