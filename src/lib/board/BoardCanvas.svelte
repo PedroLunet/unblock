@@ -81,6 +81,7 @@
 		minZoom={0.1}
 		maxZoom={1.5}
 		nodesConnectable={false}
+		nodesDraggable={false}
 		panOnScroll={true}
 		panOnScrollSpeed={0.6}
 		zoomOnPinch={true}

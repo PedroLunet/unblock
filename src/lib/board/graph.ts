@@ -28,8 +28,6 @@ const TITLE_CHARS_PER_LINE = 30;
 const TARGET_ASPECT = 1.9;
 /** Shape the final canvas aims for once the loose block is included. */
 const BOARD_ASPECT = 1.4;
-/** Space ELK leaves between connected components. */
-const COMPONENT_GAP = 96;
 
 export const NO_MILESTONE = '__none__';
 export const UNASSIGNED = '__unassigned__';
@@ -198,16 +196,16 @@ const ELK_LAYOUT_OPTIONS: Record<string, string> = {
 	'elk.edgeRouting': 'ORTHOGONAL',
 	'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
 	'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-	'elk.spacing.nodeNode': '28',
-	'elk.spacing.edgeNode': '20',
-	'elk.spacing.edgeEdge': '16',
-	'elk.layered.spacing.nodeNodeBetweenLayers': '76',
-	'elk.layered.spacing.edgeNodeBetweenLayers': '20',
-	'elk.layered.spacing.edgeEdgeBetweenLayers': '16',
+	'elk.spacing.nodeNode': '20',
+	'elk.spacing.edgeNode': '12',
+	'elk.spacing.edgeEdge': '10',
+	'elk.layered.spacing.nodeNodeBetweenLayers': '56',
+	'elk.layered.spacing.edgeNodeBetweenLayers': '12',
+	'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
 	// One layout for every chain, packed to a landscape canvas instead of a
 	// tall stack of frames.
 	'elk.separateConnectedComponents': 'true',
-	'elk.spacing.componentComponent': String(COMPONENT_GAP),
+	'elk.spacing.componentComponent': '64',
 	'elk.aspectRatio': String(TARGET_ASPECT)
 };
 

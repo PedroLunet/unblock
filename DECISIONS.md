@@ -110,8 +110,8 @@ Step 1" can be overridden — flag it in review.
   `Independent · N issues` frame.
 - **Layout**: one ELK pass for all chains, packed to a landscape component
   aspect; independent issues packed shortest-column with adaptive columns.
-  Frames are parent nodes (dragging a frame moves the whole chain, children stay
-  inside). Card geometry remains the pre-clone 240 × 132–210 layout.
+  Frames are parent nodes for packed geometry; the canvas is read-only. Card
+  geometry remains the pre-clone 240 × 132–210 layout.
 - **Board route is client-only** (`ssr = false`): the PAT lives in
   localStorage and all fetching is browser-side.
 - **Entry flow**: home page becomes the entry form (URL + PAT + scope) and
@@ -136,8 +136,8 @@ Step 1" can be overridden — flag it in review.
 
 - **One ELK pass, landscape packing**: every dependency chain goes into a single
   ELK graph (`layered`, DOWN, `ORTHOGONAL`, `NETWORK_SIMPLEX`, `LAYER_SWEEP`,
-  spacing 28/76/20/16, `separateConnectedComponents`, component spacing 96,
-  `aspectRatio 1.9`), so components pack against each other instead of being
+  spacing 20/56/12/10/12/10, `separateConnectedComponents`, component spacing
+  64, `aspectRatio 1.9`), so components pack against each other instead of being
   stacked in source order. Loose issues use shortest-column packing with an
   adaptive column count targeting a final canvas aspect of ~1.4; the narrower
   of the chain cluster and the loose block is centered against the wider one.
@@ -156,11 +156,20 @@ Step 1" can be overridden — flag it in review.
   to be axis-aligned; near-axis segments are snapped before repair. The crossing
   repair (`avoidCards`) then cannot skip a segment by mistaking it for a
   diagonal.
+- **Read-only canvas**: `nodesDraggable={false}`. Moving a card would invalidate
+  ELK's already-reserved routes and the zero edge/card guarantee; dynamic
+  rerouting on drag was deliberately deferred. Pan, zoom and selection still
+  work; Auto-Layout refits.
 - **Edge geometry guarantee**: every target has one top-centre port; source ports
   are bottom-centre for a single edge and distributed along the bottom edge for a
   fan-out. Headless tests check zero edge/card intersections, bottom-edge/top-
-  centre anchors, distinct fan-out starts, rounded paths, frame overlap, title
-  overflow and drag behavior. Dragging re-anchors the seeded route by stretching
-  its final leg.
+  centre anchors, distinct fan-out starts, rounded paths, frame overlap and title
+  overflow. A drag attempt leaves node positions and edge paths unchanged.
+- **Layout benchmark**: on the 117-issue tts graph, `NETWORK_SIMPLEX` vs
+  `BRANDES_KOEPF` and higher thoroughness were identical; `INTERACTIVE` produced
+  31 edge-edge crossings and 2.3× the edge length; wrapping and post-compaction
+  were larger. Tight spacing won: total edge length 7615 → 6671 (−12.4%), canvas
+  area 8.15M → 7.83M (−3.9%), same one edge-edge crossing, zero edge/card
+  crossings and no frame overlap.
 - **Not in this pass**: colours, typography, card content and chrome are the
   pre-clone placeholder. No visual-language decisions are being made here.
