@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -34,7 +35,8 @@
 	let edges = $state.raw<Edge[]>([]);
 	let counts = $state<BoardModel['counts'] | null>(null);
 	let selectedNumber = $state<number | null>(null);
-	let canvas: { fitView: () => void } | null = null;
+	let layoutRevision = $state(0);
+	let canvas = $state<{ fitView: () => void } | null>(null);
 
 	let selectedIssue = $derived.by(() => {
 		if (selectedNumber === null || !data) return null;
@@ -93,6 +95,8 @@
 		nodes = model.nodes;
 		edges = model.edges;
 		counts = model.counts;
+		layoutRevision += 1;
+		await tick();
 		canvas?.fitView();
 	}
 
@@ -195,16 +199,18 @@
 
 	<div class="flex min-h-0 flex-1">
 		<div class="relative min-h-0 flex-1">
-			<SvelteFlowProvider>
-				<BoardCanvas
-					bind:this={canvas}
-					bind:nodes
-					bind:edges
-					highlightNodeId={selectedNumber}
-					onissueclick={handleIssueClick}
-					onpaneclick={() => (selectedNumber = null)}
-				/>
-			</SvelteFlowProvider>
+			{#key layoutRevision}
+				<SvelteFlowProvider>
+					<BoardCanvas
+						bind:this={canvas}
+						bind:nodes
+						bind:edges
+						highlightNodeId={selectedNumber}
+						onissueclick={handleIssueClick}
+						onpaneclick={() => (selectedNumber = null)}
+					/>
+				</SvelteFlowProvider>
+			{/key}
 
 			{#if loading}
 				<div

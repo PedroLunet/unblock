@@ -152,10 +152,10 @@ Step 1" can be overridden — flag it in review.
   evenly and ordered left-to-right by the target's x. A card with one incoming
   edge keeps the top-centre entry; several incoming edges get one top port each,
   ordered by the source's x. Target ports are applied at render time, not inside
-  ELK, so the layout is unchanged. Each incoming edge gets a validated approach
-  lane just above the target row; if that lane would cross a card, the edge falls
-  back to the centre instead of clipping the card. No arrows join at a shared
-  target point.
+  ELK, so the layout is unchanged. Each incoming edge gets its own horizontal
+  lane just above the target row, offset 10px per edge on the same row, and
+  renders an L-approach (source bottom -> lane -> target top). No arrows join at
+  a shared target point and no two fan-in edges share a segment.
 - **Orthogonality snapping**: ELK sometimes emits a 1px drift on a segment meant
   to be axis-aligned; near-axis segments are snapped before repair. The crossing
   repair (`avoidCards`) then cannot skip a segment by mistaking it for a
@@ -171,6 +171,11 @@ Step 1" can be overridden — flag it in review.
   anchors, distinct fan-in and fan-out ports, no shared edge segments, rounded
   paths, frame overlap and title overflow. A drag attempt leaves node positions
   and edge paths unchanged.
+- **Rebuild correctness**: the canvas is keyed by a reactive `layoutRevision`
+  wrapping the whole `SvelteFlowProvider`. The provider's store survives a normal
+  remount, and previously retained stale edge points after a rebuild; keying the
+  provider gives every rebuild a fresh store, so nodes and edges always belong to
+  the same layout.
 - **Edge-edge crossings**: minimized, not guaranteed. On the 117-issue tts
   graph there is exactly one: `866→874` crosses `872→875` because the sources
   are ordered `866 < 872` while the targets are ordered `874 > 875`. Removing it

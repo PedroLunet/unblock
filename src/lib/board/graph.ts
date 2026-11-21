@@ -450,29 +450,32 @@ function approachTarget(
 	fraction: number,
 	obstacles: Rect[]
 ): Pt[] | null {
-	if (Math.abs(fraction - 0.5) < 0.001 || points.length < 3) return null;
+	if (Math.abs(fraction - 0.5) < 0.001 || points.length < 2) return null;
 	const last = points[points.length - 1];
-	const penultimate = points[points.length - 2];
-	if (Math.abs(penultimate.x - last.x) > 1.5) return null;
+	const penultimate = points[points.length - 2] ?? points[0];
+	if (points.length > 2 && Math.abs(penultimate.x - last.x) > 1.5) return null;
 	const portX = target.x + target.w * fraction;
-	const base = points.slice(0, -1);
+	// Drop ELK's old final horizontal + drop and rebuild the approach from the
+	// last point before it, so the line never doubles back through the centre.
+	const base = points.slice(0, -2);
+	const pre = base[base.length - 1] ?? points[0];
 	const lanes = [
-		penultimate.y,
 		target.y - 12,
 		target.y - 20,
 		target.y - 28,
 		target.y - 36,
-		target.y - 44
+		target.y - 44,
+		target.y - 52
 	];
 	for (const lane of lanes) {
 		if (lane >= target.y - 2) continue;
 		const candidate = dedupePoints([
 			...base,
-			{ x: penultimate.x, y: lane },
+			{ x: pre.x, y: lane },
 			{ x: portX, y: lane },
 			{ x: portX, y: target.y }
 		]);
-		if (candidate.length >= 2 && allClear(piecesOf(candidate), obstacles)) return candidate;
+		if (allClear(piecesOf(candidate), obstacles)) return candidate;
 	}
 	return null;
 }
@@ -740,18 +743,7 @@ async function layoutChains(
 		const obstacles = [...rectById.entries()]
 			.filter(([id]) => id !== from && id !== to)
 			.map(([, rect]) => rect);
-		const repaired = avoidCards(points, obstacles);
-		const targetRect = rectById.get(to);
-		const targetFraction = edgeTargetPort.get(key) ?? 0.5;
-		const adjusted = targetRect
-			? approachTarget(repaired, targetRect, targetFraction, obstacles)
-			: null;
-		if (adjusted) {
-			edgePoints[component].set(key, adjusted);
-		} else {
-			edgePoints[component].set(key, repaired);
-			if (targetFraction !== 0.5) edgeTargetPort.set(key, 0.5);
-		}
+		edgePoints[component].set(key, avoidCards(points, obstacles));
 	}
 
 	return chains.map((group, component) => {
@@ -982,13 +974,47 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 		}
 	}
 
+	const absoluteRects = new Map<number, Rect>();
+	for (const frame of frames) {
+		const frameX = frame.x - offsetX;
+		const frameY = frame.y - offsetY;
+		for (const child of frame.children) {
+			const size = sizes.get(child.n);
+			if (size) {
+				absoluteRects.set(child.n, {
+					x: frameX + child.x,
+					y: frameY + child.y,
+					w: size.width,
+					h: size.height
+				});
+			}
+		}
+	}
+
 	const edges: Edge[] = [];
+	const laneCounts = new Map<number, number>();
 	chainLayouts.forEach((layout) => {
 		const members = new Set(layout.members);
 		for (const edge of boardEdges) {
 			if (!members.has(edge.from) || !members.has(edge.to)) continue;
-			const points = layout.edgePoints.get(`${edge.from}->${edge.to}`);
-			if (!points) continue;
+			const rawPoints = layout.edgePoints.get(`${edge.from}->${edge.to}`);
+			if (!rawPoints) continue;
+			const points = rawPoints.map((p) => ({
+				x: p.x - offsetX + chainShiftX,
+				y: p.y - offsetY
+			}));
+			const targetFraction = layout.edgeTargetPort.get(`${edge.from}->${edge.to}`) ?? 0.5;
+			const targetRect = absoluteRects.get(edge.to);
+			const laneRow = targetRect ? Math.round(targetRect.y / 4) : 0;
+			const targetLane = targetRect && targetFraction !== 0.5 ? (laneCounts.get(laneRow) ?? 0) : 0;
+			if (targetRect && targetFraction !== 0.5) laneCounts.set(laneRow, targetLane + 1);
+			const obstacles = [...absoluteRects.entries()]
+				.filter(([id]) => id !== edge.from && id !== edge.to)
+				.map(([, rect]) => rect);
+			const adjusted =
+				targetRect && targetFraction !== 0.5
+					? approachTarget(points, targetRect, targetFraction, obstacles)
+					: null;
 			const blocked = dataByNumber.get(edge.to);
 			const blocking = !!blocked && blocked.issue.state === 'open' && blocked.openBlockers > 0;
 			const color = blocking ? '#ef4444' : '#a3a3a3';
@@ -998,12 +1024,10 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 				target: `issue-${edge.to}`,
 				type: 'rounded',
 				data: {
-					points: points.map((p) => ({
-						x: p.x - offsetX + chainShiftX,
-						y: p.y - offsetY
-					})),
+					points: adjusted ?? points,
 					sourcePort: layout.edgeSourcePort.get(`${edge.from}->${edge.to}`) ?? 0.5,
-					targetPort: layout.edgeTargetPort.get(`${edge.from}->${edge.to}`) ?? 0.5
+					targetPort: adjusted ? targetFraction : 0.5,
+					targetLane
 				},
 				markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color },
 				style: `stroke: ${color}; stroke-width: 1.5;`

@@ -41,15 +41,25 @@
 		const s = sourceNode.current;
 		const t = targetNode.current;
 		const seedData = data as
-			{ points?: Pt[]; sourcePort?: number; targetPort?: number } | undefined;
+			{ points?: Pt[]; sourcePort?: number; targetPort?: number; targetLane?: number } | undefined;
 		const sourcePort = seedData?.sourcePort ?? 0.5;
 		const targetPort = seedData?.targetPort ?? 0.5;
+		const targetLane = seedData?.targetLane ?? 0;
 		const seeded: Pt[] = seedData?.points ?? [];
 		if (!s || !t || seeded.length < 2) return '';
 		const sx = s.internals.positionAbsolute.x + (s.measured.width ?? 0) * sourcePort;
 		const sy = s.internals.positionAbsolute.y + (s.measured.height ?? 0);
 		const tx = t.internals.positionAbsolute.x + (t.measured.width ?? 0) * targetPort;
 		const ty = t.internals.positionAbsolute.y;
+		if (targetPort !== 0.5) {
+			const laneY = ty - 12 - targetLane * 10;
+			return roundedPath([
+				{ x: sx, y: sy },
+				{ x: sx, y: laneY },
+				{ x: tx, y: laneY },
+				{ x: tx, y: ty }
+			]);
+		}
 		const dx = sx - seeded[0].x;
 		const dy = sy - seeded[0].y;
 		const points: Pt[] = seeded.map((p) => ({ x: p.x + dx, y: p.y + dy }));
