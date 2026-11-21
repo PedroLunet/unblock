@@ -7,23 +7,30 @@ import type { DepEdge, IssueRecord, RepoData } from '#lib/github';
 /** Fixed card width — node CSS must match. Heights are estimated per card (see estimateCardHeight). */
 export const CARD_WIDTH = 240;
 
-const FRAME_HEADER = 30;
-const FRAME_PAD = 20;
-const CHAIN_GAP = 48;
-const INDEP_GAP = 24;
-const INDEP_MAX_COLS = 6;
+const FRAME_HEADER = 26;
+const FRAME_PAD = 16;
+const BLOCK_GAP = 72;
+const INDEP_GAP = 20;
 
 /** Card geometry constants shared with IssueNode.svelte — keep in sync. */
-const CARD_PAD = 20;
+const CARD_PAD = 8;
+const CARD_BORDER = 1;
 const ROW_GAP = 4;
-const HEADER_H = 18;
-const LABELS_H = 18;
-const MILESTONE_H = 15;
-const HEAT_H = 15;
-const BADGES_H = 18;
+const HEADER_H = 16;
+const LABELS_H = 17;
+const FOOTER_H = 16;
 const TITLE_LINE_H = 17;
-const TITLE_MAX_LINES = 3;
-const TITLE_CHARS_PER_LINE = 30;
+const TITLE_MAX_LINES = 4;
+const TITLE_CHARS_PER_LINE = 28;
+
+/** Landscape shape ELK packs connected components into. */
+const TARGET_ASPECT = 1.9;
+/** Shape the final canvas aims for once the loose block is included. */
+const BOARD_ASPECT = 1.4;
+/** Space ELK leaves between connected components. */
+const COMPONENT_GAP = 96;
+/** One quiet stroke for every dependency; state lives on the card, not the arrow. */
+const EDGE_COLOR = '#8c97a8';
 
 export const NO_MILESTONE = '__none__';
 export const UNASSIGNED = '__unassigned__';
@@ -34,11 +41,17 @@ export interface BoardFilters {
 	hasOpenPR: boolean;
 }
 
+export type IssueState = 'blocked' | 'in-progress' | 'in-review' | 'unassigned' | 'closed';
+
 export interface IssueFlowData {
 	issue: IssueRecord;
+	/** Compact state shown as a word and the card's pastel fill. */
+	state: IssueState;
+	/** Estimated title wrapping, also used as the CSS line clamp. */
+	titleLines: number;
 	/** Count of open-issue blockers (regardless of current view filters). */
 	openBlockers: number;
-	/** Closed-issue blockers that are not visible on the canvas (open-only mode) — shown as a muted badge. */
+	/** Closed-issue blockers that are not visible on the canvas (open-only mode). */
 	resolvedBlockers: number;
 	hasOpenPR: boolean;
 	[key: string]: unknown;
@@ -47,6 +60,7 @@ export interface IssueFlowData {
 export interface FrameFlowData {
 	label: string;
 	count: number;
+	kind: 'chain' | 'independent';
 	[key: string]: unknown;
 }
 
@@ -112,35 +126,41 @@ function passesFilters(issue: IssueRecord, filters: BoardFilters): boolean {
 	return true;
 }
 
-function hasBadgeRow(flow: Pick<IssueFlowData, 'resolvedBlockers' | 'issue'>): boolean {
-	return flow.resolvedBlockers > 0 || flow.issue.linkedPRs.length > 0;
+/** How many lines the title needs at the compact card width. */
+export function titleLineCount(title: string): number {
+	return Math.min(TITLE_MAX_LINES, Math.max(1, Math.ceil(title.length / TITLE_CHARS_PER_LINE)));
+}
+
+/** The footer is only worth a row when it says something the header does not. */
+function hasFooter(flow: IssueFlowData): boolean {
+	return (
+		flow.issue.assignees.length > 0 ||
+		flow.issue.linkedPRs.length > 0 ||
+		flow.resolvedBlockers > 0 ||
+		!!flow.issue.milestone
+	);
 }
 
 /**
  * Estimated card height: mirrors IssueNode's fixed row heights so ELK positions
  * match the rendered card and no dead space or clipping appears.
+ *
+ * Compact anatomy: header row, title (1–4 lines), optional one label row, optional
+ * footer. Rows are counted rather than hard-coded so the two stay in sync.
  */
 export function estimateCardHeight(flow: IssueFlowData): number {
-	const titleLines = Math.min(
-		TITLE_MAX_LINES,
-		Math.max(1, Math.ceil(flow.issue.title.length / TITLE_CHARS_PER_LINE))
+	const labels = flow.issue.labels.length > 0 ? 1 : 0;
+	const footer = hasFooter(flow) ? 1 : 0;
+	const gaps = 1 + labels + footer;
+	return (
+		CARD_PAD * 2 +
+		CARD_BORDER * 2 +
+		HEADER_H +
+		flow.titleLines * TITLE_LINE_H +
+		labels * LABELS_H +
+		footer * FOOTER_H +
+		gaps * ROW_GAP
 	);
-	let contentHeight = HEADER_H + titleLines * TITLE_LINE_H + HEAT_H;
-	let rows = 3;
-	if (flow.issue.labels.length > 0) {
-		contentHeight += LABELS_H;
-		rows++;
-	}
-	if (flow.issue.milestone) {
-		contentHeight += MILESTONE_H;
-		rows++;
-	}
-	if (hasBadgeRow(flow)) {
-		contentHeight += BADGES_H;
-		rows++;
-	}
-	const estimated = CARD_PAD + contentHeight + (rows - 1) * ROW_GAP + 8;
-	return Math.max(132, Math.min(210, estimated));
 }
 
 /** Union-find over visible dependency edges. */
@@ -186,26 +206,23 @@ function connectedComponents(ids: number[], edges: DepEdge[]): number[][] {
 		.sort((a, b) => b.length - a.length || a[0] - b[0]);
 }
 
-interface ComponentLayout {
-	/** Node top-left positions relative to the component origin. */
-	positions: Map<number, { x: number; y: number }>;
-	/** Routed edge polylines relative to the component origin, keyed `from->to`. */
-	edgePoints: Map<string, { x: number; y: number }[]>;
-	width: number;
-	height: number;
-}
-
 const ELK_LAYOUT_OPTIONS: Record<string, string> = {
 	'elk.algorithm': 'layered',
 	'elk.direction': 'DOWN',
 	'elk.edgeRouting': 'ORTHOGONAL',
-	'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
-	'elk.spacing.nodeNode': '56',
-	'elk.spacing.edgeNode': '24',
-	'elk.spacing.edgeEdge': '14',
-	'elk.layered.spacing.nodeNodeBetweenLayers': '88',
+	'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+	'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+	'elk.spacing.nodeNode': '28',
+	'elk.spacing.edgeNode': '20',
+	'elk.spacing.edgeEdge': '16',
+	'elk.layered.spacing.nodeNodeBetweenLayers': '76',
 	'elk.layered.spacing.edgeNodeBetweenLayers': '20',
-	'elk.layered.spacing.edgeEdgeBetweenLayers': '14'
+	'elk.layered.spacing.edgeEdgeBetweenLayers': '16',
+	// One layout for every chain, packed to a landscape canvas instead of a
+	// tall stack of frames.
+	'elk.separateConnectedComponents': 'true',
+	'elk.spacing.componentComponent': String(COMPONENT_GAP),
+	'elk.aspectRatio': String(TARGET_ASPECT)
 };
 
 /** Edges always leave the bottom-center and enter the top-center of a card. */
@@ -411,13 +428,35 @@ async function getElk(): Promise<ElkInstance> {
 	return elkInstance;
 }
 
-async function layoutComponentElk(
-	members: number[],
+interface ChainLayout {
+	members: number[];
+	/** Global node top-left positions produced by the single ELK pass. */
+	positions: Map<number, Pt>;
+	/** Global routed polylines, keyed `from->to`. */
+	edgePoints: Map<string, Pt[]>;
+	frame: Rect;
+}
+
+/**
+ * Lay out every dependency chain in one ELK pass. `separateConnectedComponents`
+ * lets ELK pack the chains against a landscape aspect ratio instead of stacking
+ * them vertically, which is what keeps a 117-issue backlog from opening as a
+ * tall strip.
+ */
+async function layoutChains(
+	chains: number[][],
 	edges: DepEdge[],
 	sizes: Map<number, { width: number; height: number }>
-): Promise<ComponentLayout> {
+): Promise<ChainLayout[]> {
+	if (chains.length === 0) return [];
+	const members = chains.flat();
 	const memberSet = new Set(members);
-	const componentEdges = edges.filter((e) => memberSet.has(e.from) && memberSet.has(e.to));
+	const componentOf = new Map<number, number>();
+	chains.forEach((group, index) => {
+		for (const n of group) componentOf.set(n, index);
+	});
+	const chainEdges = edges.filter((e) => memberSet.has(e.from) && memberSet.has(e.to));
+
 	const graph: ElkNode = {
 		id: 'root',
 		layoutOptions: ELK_LAYOUT_OPTIONS,
@@ -451,64 +490,103 @@ async function layoutComponentElk(
 				}
 			];
 		}),
-		edges: componentEdges.map((e) => ({
+		edges: chainEdges.map((e) => ({
 			id: `edge-${e.from}-${e.to}`,
 			sources: [portFor(e.from, 'out')],
 			targets: [portFor(e.to, 'in')]
 		}))
 	};
+
 	const elk = await getElk();
 	const laid = await elk.layout(graph);
-	const positions = new Map<number, { x: number; y: number }>();
-	let maxX = 0;
-	let maxY = 0;
+	const positions = new Map<number, Pt>();
 	for (const child of laid.children ?? []) {
 		const n = Number(child.id.replace('issue-', ''));
 		if (!Number.isFinite(n)) continue;
-		const x = child.x ?? 0;
-		const y = child.y ?? 0;
-		positions.set(n, { x, y });
-		maxX = Math.max(maxX, x + (child.width ?? CARD_WIDTH));
-		maxY = Math.max(maxY, y + (child.height ?? 0));
+		positions.set(n, { x: child.x ?? 0, y: child.y ?? 0 });
 	}
-	// Card rectangles for the post-routing no-crossing guarantee.
-	const rects = new Map<number, Rect>();
+
+	const rectById = new Map<number, Rect>();
 	for (const n of members) {
 		const pos = positions.get(n);
 		const size = sizes.get(n);
-		if (pos && size) rects.set(n, { x: pos.x, y: pos.y, w: size.width, h: size.height });
+		if (pos && size) rectById.set(n, { x: pos.x, y: pos.y, w: size.width, h: size.height });
 	}
-	const edgePoints = new Map<string, { x: number; y: number }[]>();
+
+	const edgePoints = chains.map(() => new Map<string, Pt[]>());
 	for (const edge of laid.edges ?? []) {
-		const points: { x: number; y: number }[] = [];
+		const points: Pt[] = [];
 		for (const section of edge.sections ?? []) {
 			points.push({ x: section.startPoint.x, y: section.startPoint.y });
 			for (const bend of section.bendPoints ?? []) points.push({ x: bend.x, y: bend.y });
 			points.push({ x: section.endPoint.x, y: section.endPoint.y });
 		}
-		if (points.length >= 2) {
-			const key = edge.id.replace(/^edge-/, '').replace('-', '->');
-			const [fromPart, toPart] = key.split('->');
-			const from = Number(fromPart);
-			const to = Number(toPart);
-			const obstacles = [...rects.entries()]
-				.filter(([id]) => id !== from && id !== to)
-				.map(([, rect]) => rect);
-			const repaired = avoidCards(points, obstacles);
-			edgePoints.set(key, repaired);
-			for (const p of repaired) {
+		if (points.length < 2) continue;
+		const key = edge.id.replace(/^edge-/, '').replace('-', '->');
+		const [fromPart, toPart] = key.split('->');
+		const from = Number(fromPart);
+		const to = Number(toPart);
+		const component = componentOf.get(from);
+		if (component === undefined) continue;
+		const obstacles = [...rectById.entries()]
+			.filter(([id]) => id !== from && id !== to)
+			.map(([, rect]) => rect);
+		edgePoints[component].set(key, avoidCards(points, obstacles));
+	}
+
+	return chains.map((group, component) => {
+		let minX = Number.POSITIVE_INFINITY;
+		let minY = Number.POSITIVE_INFINITY;
+		let maxX = Number.NEGATIVE_INFINITY;
+		let maxY = Number.NEGATIVE_INFINITY;
+		for (const n of group) {
+			const pos = positions.get(n);
+			const size = sizes.get(n);
+			if (!pos || !size) continue;
+			minX = Math.min(minX, pos.x);
+			minY = Math.min(minY, pos.y);
+			maxX = Math.max(maxX, pos.x + size.width);
+			maxY = Math.max(maxY, pos.y + size.height);
+		}
+		for (const points of edgePoints[component].values()) {
+			for (const p of points) {
+				minX = Math.min(minX, p.x);
+				minY = Math.min(minY, p.y);
 				maxX = Math.max(maxX, p.x);
 				maxY = Math.max(maxY, p.y);
 			}
 		}
-	}
-	return { positions, edgePoints, width: maxX, height: maxY };
+		return {
+			members: group,
+			positions,
+			edgePoints: edgePoints[component],
+			frame: {
+				x: minX - FRAME_PAD,
+				y: minY - FRAME_PAD - FRAME_HEADER,
+				w: maxX - minX + FRAME_PAD * 2,
+				h: maxY - minY + FRAME_PAD * 2 + FRAME_HEADER
+			}
+		};
+	});
+}
+
+interface FrameLayout {
+	id: string;
+	label: string;
+	count: number;
+	kind: 'chain' | 'independent';
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+	children: { n: number; x: number; y: number }[];
 }
 
 /**
  * Build Svelte Flow nodes and edges for the current data + view filters.
- * Each dependency chain is laid out with ELK (layered, orthogonal edge routing)
- * and wrapped in a labeled frame; singletons are packed into one "Independent" frame.
+ * All dependency chains share one ELK pass packed to a landscape shape; each
+ * chain is wrapped in a labeled frame afterwards. Singletons are packed into a
+ * dense shortest-column block below the drawn graph.
  */
 export async function buildBoard(data: RepoData, filters: BoardFilters): Promise<BoardModel> {
 	const visible = data.issues.filter((issue) => passesFilters(issue, filters));
@@ -526,11 +604,24 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 			if (target.issue.state === 'open') openBlockers++;
 			else if (!visibleSet.has(target.issue.number)) resolvedBlockers++;
 		}
+		const hasOpenPR = issue.linkedPRs.some((pr) => pr.state === 'open');
+		const state: IssueState =
+			issue.state === 'closed'
+				? 'closed'
+				: openBlockers > 0
+					? 'blocked'
+					: hasOpenPR
+						? 'in-review'
+						: issue.assignees.length > 0
+							? 'in-progress'
+							: 'unassigned';
 		return {
 			issue,
+			state,
+			titleLines: titleLineCount(issue.title),
 			openBlockers,
 			resolvedBlockers,
-			hasOpenPR: issue.linkedPRs.some((pr) => pr.state === 'open')
+			hasOpenPR
 		};
 	};
 
@@ -548,114 +639,166 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 	const chains = components.filter((group) => group.length > 1);
 	const singles = components.filter((group) => group.length === 1).map((group) => group[0]);
 
-	const nodes: BoardNode[] = [];
-	const edges: Edge[] = [];
-	let yCursor = 0;
-	let chainIndex = 0;
+	const chainLayouts = await layoutChains(chains, boardEdges, sizes);
 
-	for (const chain of chains) {
-		const component = await layoutComponentElk(chain, boardEdges, sizes);
-		const frameId = `chain-${chainIndex}`;
-		const framePos = { x: 0, y: yCursor };
-		const frameWidth = component.width + FRAME_PAD * 2;
-		const frameHeight = component.height + FRAME_PAD * 2 + FRAME_HEADER;
+	const frames: FrameLayout[] = chainLayouts.map((layout, index) => ({
+		id: `chain-${index}`,
+		label: `Chain · ${layout.members.length} issues`,
+		count: layout.members.length,
+		kind: 'chain',
+		x: layout.frame.x,
+		y: layout.frame.y,
+		w: layout.frame.w,
+		h: layout.frame.h,
+		children: layout.members.flatMap((n) => {
+			const pos = layout.positions.get(n);
+			if (!pos) return [];
+			return [{ n, x: pos.x - layout.frame.x, y: pos.y - layout.frame.y }];
+		})
+	}));
+
+	if (singles.length > 0) {
+		const chainBottom = chainLayouts.length
+			? Math.max(...chainLayouts.map((layout) => layout.frame.y + layout.frame.h))
+			: 0;
+		const chainRight = chainLayouts.length
+			? Math.max(...chainLayouts.map((layout) => layout.frame.x + layout.frame.w))
+			: 0;
+		const blockY = chainLayouts.length > 0 ? chainBottom + BLOCK_GAP : 0;
+
+		// Pick the column count that brings the whole canvas closest to a
+		// landscape 1.9 aspect. A fixed column count makes a large backlog tall
+		// and narrow however wide the drawn chains are.
+		const pack = (columns: number) => {
+			const heights = new Array<number>(columns).fill(0);
+			const placed: { n: number; x: number; y: number }[] = [];
+			for (const n of singles) {
+				const size = sizes.get(n);
+				if (!size) continue;
+				let column = 0;
+				for (let i = 1; i < columns; i++) {
+					if (heights[i] < heights[column]) column = i;
+				}
+				placed.push({ n, x: column * (CARD_WIDTH + INDEP_GAP), y: heights[column] });
+				heights[column] += size.height + INDEP_GAP;
+			}
+			const width = columns * CARD_WIDTH + (columns - 1) * INDEP_GAP;
+			const height = Math.max(0, Math.max(...heights) - INDEP_GAP);
+			return { placed, width, height };
+		};
+
+		let best = pack(1);
+		let bestScore = Number.POSITIVE_INFINITY;
+		const maxColumns = Math.min(singles.length, 32);
+		for (let columns = 1; columns <= maxColumns; columns++) {
+			const candidate = pack(columns);
+			const totalWidth = Math.max(chainRight, candidate.width + FRAME_PAD * 2);
+			const totalHeight = blockY + candidate.height + FRAME_PAD;
+			const aspect = totalWidth / Math.max(1, totalHeight);
+			const score = Math.abs(Math.log(aspect / BOARD_ASPECT));
+			if (score < bestScore) {
+				bestScore = score;
+				best = candidate;
+			}
+		}
+		const contentWidth = best.width;
+		const contentHeight = best.height;
+		frames.push({
+			id: 'chain-independent',
+			label: `Independent · ${singles.length} issues`,
+			count: singles.length,
+			kind: 'independent',
+			x: -FRAME_PAD,
+			y: blockY - FRAME_PAD - FRAME_HEADER,
+			w: contentWidth + FRAME_PAD * 2,
+			h: contentHeight + FRAME_PAD * 2 + FRAME_HEADER,
+			children: best.placed.map((p) => ({
+				n: p.n,
+				x: p.x + FRAME_PAD,
+				y: p.y + FRAME_PAD + FRAME_HEADER
+			}))
+		});
+	}
+
+	// Center the narrower block against the wider one: a 14-column independent
+	// grid should not leave the chains stranded in the top-left corner.
+	let chainShiftX = 0;
+	const chainFrames = frames.filter((frame) => frame.kind === 'chain');
+	const independentFrame = frames.find((frame) => frame.kind === 'independent');
+	if (chainFrames.length > 0 && independentFrame) {
+		const chainLeft = Math.min(...chainFrames.map((frame) => frame.x));
+		const chainRight = Math.max(...chainFrames.map((frame) => frame.x + frame.w));
+		const independentLeft = independentFrame.x;
+		const independentRight = independentFrame.x + independentFrame.w;
+		const chainWidth = chainRight - chainLeft;
+		const independentWidth = independentRight - independentLeft;
+		if (independentWidth > chainWidth) {
+			chainShiftX = (independentLeft + independentRight) / 2 - (chainLeft + chainRight) / 2;
+			for (const frame of chainFrames) frame.x += chainShiftX;
+		} else if (chainWidth > independentWidth) {
+			independentFrame.x += (chainLeft + chainRight) / 2 - (independentLeft + independentRight) / 2;
+		}
+	}
+
+	const offsetX = frames.length > 0 ? Math.min(...frames.map((frame) => frame.x)) : 0;
+	const offsetY = frames.length > 0 ? Math.min(...frames.map((frame) => frame.y)) : 0;
+
+	const nodes: BoardNode[] = [];
+	for (const frame of frames) {
 		nodes.push({
-			id: frameId,
+			id: frame.id,
 			type: 'frame',
-			position: framePos,
-			width: frameWidth,
-			height: frameHeight,
-			style: `width:${frameWidth}px;height:${frameHeight}px`,
-			data: { label: `Chain · ${chain.length} issues`, count: chain.length },
+			position: { x: frame.x - offsetX, y: frame.y - offsetY },
+			width: frame.w,
+			height: frame.h,
+			style: `width:${frame.w}px;height:${frame.h}px`,
+			data: { label: frame.label, count: frame.count, kind: frame.kind },
 			draggable: true,
 			selectable: false
 		});
-		for (const n of chain) {
-			const flowData = dataByNumber.get(n);
-			const pos = component.positions.get(n);
-			const size = sizes.get(n);
-			if (!flowData || !pos || !size) continue;
+	}
+	for (const frame of frames) {
+		for (const child of frame.children) {
+			const flowData = dataByNumber.get(child.n);
+			const size = sizes.get(child.n);
+			if (!flowData || !size) continue;
 			nodes.push({
-				id: `issue-${n}`,
+				id: `issue-${child.n}`,
 				type: 'issue',
-				parentId: frameId,
+				parentId: frame.id,
 				extent: 'parent',
-				position: { x: pos.x + FRAME_PAD, y: pos.y + FRAME_PAD + FRAME_HEADER },
+				position: { x: child.x, y: child.y },
 				width: size.width,
 				height: size.height,
 				style: `width:${size.width}px;height:${size.height}px`,
 				data: flowData
 			});
 		}
+	}
+
+	const edges: Edge[] = [];
+	chainLayouts.forEach((layout) => {
+		const members = new Set(layout.members);
 		for (const edge of boardEdges) {
-			if (!chain.includes(edge.from) || !chain.includes(edge.to)) continue;
-			const points = component.edgePoints.get(`${edge.from}->${edge.to}`);
+			if (!members.has(edge.from) || !members.has(edge.to)) continue;
+			const points = layout.edgePoints.get(`${edge.from}->${edge.to}`);
 			if (!points) continue;
-			const originX = framePos.x + FRAME_PAD;
-			const originY = framePos.y + FRAME_HEADER + FRAME_PAD;
-			const blocked = dataByNumber.get(edge.to);
-			const blocking = !!blocked && blocked.issue.state === 'open' && blocked.openBlockers > 0;
-			const color = blocking ? '#ef4444' : '#a3a3a3';
 			edges.push({
 				id: `edge-${edge.from}-${edge.to}`,
 				source: `issue-${edge.from}`,
 				target: `issue-${edge.to}`,
 				type: 'rounded',
-				data: { points: points.map((p) => ({ x: p.x + originX, y: p.y + originY })) },
-				markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color },
-				style: `stroke: ${color}; stroke-width: 1.5;`
+				data: {
+					points: points.map((p) => ({
+						x: p.x - offsetX + chainShiftX,
+						y: p.y - offsetY
+					}))
+				},
+				markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: EDGE_COLOR },
+				style: `stroke: ${EDGE_COLOR}; stroke-width: 1.3; opacity: 0.75;`
 			});
 		}
-		yCursor += frameHeight + CHAIN_GAP;
-		chainIndex++;
-	}
-
-	if (singles.length > 0) {
-		const cols = Math.min(INDEP_MAX_COLS, Math.max(2, Math.ceil(Math.sqrt(singles.length))));
-		const rows: number[][] = [];
-		for (let i = 0; i < singles.length; i += cols) rows.push(singles.slice(i, i + cols));
-		const rowHeights = rows.map((row) => Math.max(...row.map((n) => sizes.get(n)?.height ?? 0)));
-		const contentWidth = cols * CARD_WIDTH + (cols - 1) * INDEP_GAP;
-		const contentHeight = rowHeights.reduce((sum, h) => sum + h, 0) + (rows.length - 1) * INDEP_GAP;
-		const frameWidth = contentWidth + FRAME_PAD * 2;
-		const frameHeight = contentHeight + FRAME_PAD * 2 + FRAME_HEADER;
-		const framePos = { x: 0, y: yCursor };
-		const frameId = 'chain-independent';
-		nodes.push({
-			id: frameId,
-			type: 'frame',
-			position: framePos,
-			width: frameWidth,
-			height: frameHeight,
-			style: `width:${frameWidth}px;height:${frameHeight}px`,
-			data: { label: `Independent · ${singles.length} issues`, count: singles.length },
-			draggable: true,
-			selectable: false
-		});
-		let rowY = FRAME_HEADER + FRAME_PAD;
-		rows.forEach((row, rowIndex) => {
-			const rowWidth = row.length * CARD_WIDTH + (row.length - 1) * INDEP_GAP;
-			let x = FRAME_PAD + (contentWidth - rowWidth) / 2;
-			for (const n of row) {
-				const flowData = dataByNumber.get(n);
-				const size = sizes.get(n);
-				if (!flowData || !size) continue;
-				nodes.push({
-					id: `issue-${n}`,
-					type: 'issue',
-					parentId: frameId,
-					extent: 'parent',
-					position: { x, y: rowY },
-					width: size.width,
-					height: size.height,
-					style: `width:${size.width}px;height:${size.height}px`,
-					data: flowData
-				});
-				x += CARD_WIDTH + INDEP_GAP;
-			}
-			rowY += rowHeights[rowIndex] + INDEP_GAP;
-		});
-	}
+	});
 
 	return {
 		nodes,

@@ -3,6 +3,46 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import '@xyflow/svelte/xy-theme.css';
+@import '@fontsource/figtree/400.css';
+@import '@fontsource/figtree/500.css';
+@import '@fontsource/figtree/600.css';
+@import '@fontsource/gabarito/700.css';
+
+@theme {
+	--font-sans: 'Figtree', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+	--font-display: 'Gabarito', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+	--color-board: #f3f5f8;
+	--color-ink: #1f2a37;
+	--color-quiet: #5f6a78;
+	--color-line: #e3e8ee;
+	--color-line-strong: #cfd7e1;
+	--color-accent: #3a5cf0;
+	--color-accent-soft: #eaefff;
+	--color-edge: #8c97a8;
+
+	--color-blocked: #fdf1c7;
+	--color-blocked-line: #e2b950;
+	--color-progress: #ddeafb;
+	--color-progress-line: #7aa6dd;
+	--color-review: #d9f0f2;
+	--color-review-line: #6cb6bd;
+	--color-closed: #ebeff4;
+	--color-closed-line: #b0bac7;
+
+	--shadow-card: 0 1px 2px rgb(31 42 55 / 0.06), 0 4px 14px rgb(31 42 55 / 0.06);
+}
+
+@layer base {
+	body {
+		background: var(--color-board);
+		color: var(--color-ink);
+		font-family: var(--font-sans);
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+	}
+}
 
 /* The xy-theme default node chrome insets every node by 10px + 1px border.
    Our card/frame components draw their own box and must fill the exact
