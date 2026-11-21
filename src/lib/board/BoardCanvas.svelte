@@ -59,9 +59,10 @@
 	});
 
 	export function fitView(): void {
-		requestAnimationFrame(() => {
-			void flow.fitView({ padding: 0.15, duration: 200 });
-		});
+		const fit = () => void flow.fitView({ padding: 0.15, duration: 200 });
+		requestAnimationFrame(() => requestAnimationFrame(fit));
+		// A second, instant fit once Svelte Flow has measured the rebuilt nodes.
+		setTimeout(() => void flow.fitView({ padding: 0.15, duration: 0 }), 180);
 	}
 
 	function handleNodeClick(event: { node: BoardNode }): void {

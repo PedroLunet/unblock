@@ -165,6 +165,13 @@ Step 1" can be overridden — flag it in review.
   fan-out. Headless tests check zero edge/card intersections, bottom-edge/top-
   centre anchors, distinct fan-out starts, rounded paths, frame overlap and title
   overflow. A drag attempt leaves node positions and edge paths unchanged.
+- **Edge-edge crossings**: minimized, not guaranteed. On the 117-issue tts
+  graph there is exactly one: `866→874` crosses `872→875` because the sources
+  are ordered `866 < 872` while the targets are ordered `874 > 875`. Removing it
+  requires reordering that row or a long detour, and either can create a
+  different crossing. Distributing target ports (separate top ports per incoming
+  edge) was tried and reverted: it did not remove this structural crossing and
+  destabilised component packing/frames. Edge/card crossings remain zero.
 - **Layout benchmark**: on the 117-issue tts graph, `NETWORK_SIMPLEX` vs
   `BRANDES_KOEPF` and higher thoroughness were identical; `INTERACTIVE` produced
   31 edge-edge crossings and 2.3× the edge length; wrapping and post-compaction
