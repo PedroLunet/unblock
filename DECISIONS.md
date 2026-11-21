@@ -97,18 +97,21 @@ Step 1" can be overridden — flag it in review.
 
 ## Step 2 decisions (answered + made)
 
-- **Canvas engine**: `@xyflow/svelte@2.0.2` (Svelte 5-native, MIT) + `@dagrejs/dagre@3.1.3`.
-  Excalidraw rejected: React runtime, and a drawing canvas rather than a node/edge graph.
-- **Resolved blockers** (open-only mode): muted on-node badge
-  (`N resolved blocker(s)`), no dimmed closed nodes.
-- **Task-list references to PRs**: muted dashed `PR #n` chips on the node and
-  a line in the drawer; never drawn as dependency edges.
+- **Canvas engine**: `@xyflow/svelte` (Svelte 5-native, MIT) + `elkjs` (ELK).
+  Dagre was replaced after real-data review (overlapping elbows and arrowhead
+  pileups); Excalidraw was rejected (React runtime, drawing canvas rather than a
+  node/edge graph).
+- **Resolved blockers** (open-only mode): shown as a compact `N resolved` footer
+  item when there is no PR or milestone to show, with the full list in the
+  drawer. Closed blockers are never drawn as nodes or edges.
+- **Linked PRs**: native linked PRs only, shown as a footer chip on the compact
+  card and as a full list in the drawer; never drawn as dependency edges.
 - **Chain frames**: included — connected components become labeled
   `Chain · N issues` frame nodes; singletons are packed into a single
   `Independent · N issues` frame (matching the issues.martonpaulo.com reference).
-- **Layout**: dagre top-to-bottom per chain, chains packed vertically,
-  independent issues in a grid (≤6 columns). Fixed card geometry
-  (240×170) so dagre's positions stay truthful; frames are parent nodes
+- **Layout**: one ELK pass for all chains, packed to a landscape aspect;
+  independent issues packed shortest-column with adaptive columns; compact card
+  geometry (240px wide, height from 1–4 title lines). Frames are parent nodes
   (dragging a frame moves the whole chain, children stay inside).
 - **Board route is client-only** (`ssr = false`): the PAT lives in
   localStorage and all fetching is browser-side.
@@ -127,67 +130,56 @@ Step 1" can be overridden — flag it in review.
   deleted; dependencies now come solely from GitHub's own Relationships
   attribute, which is curated data rather than prose.
 
-## Step 2 visual refinements (answered after first review)
+## Step 2 visual refinements (latest pass)
 
-- **Blocked must be instantly legible**: blocked cards get a red left accent
-  strip and a top-right corner counter badge; edges pointing into a blocked
-  issue are drawn red (blockers are always the sources). No manual "blocked"
-  flag — state is data-driven; the point is immediate visual recognition.
-- **Corner counter format**: `2` when both blockers are open, `1/2` when one of
-  two is resolved (tooltip `N of M blockers open`), hidden when no blockers are
-  open (the muted `N resolved blocker(s)` chip still shows full resolution).
-- **Assignees**: up to two 16px avatars + `@handles` (truncated) + `+N` on the
-  card; all avatars in the drawer; bold `Unassigned` when none.
-- **Canvas feel (Excalidraw-inspired)**: wheel pans (`panOnScroll`, speed 0.6),
-  pinch zooms, double-click zoom disabled, slightly larger dots, 200ms fitView.
-  Svelte Flow stays the engine — Excalidraw itself was rejected (React runtime,
-  drawing model instead of live data cards).
-- **Testing note**: Svelte Flow measures nodes and runs fitView via
-  requestAnimationFrame, so the canvas stays unmeasured while the desktop window
-  is occluded. Verified via headless Chrome/CDP (`/tmp` script, no deps) —
-  fixture covers all badge/avatar/accent/red-edge states.
-- **Layout engine: ELK, not dagre** (review of real data showed overlapping
-  smoothstep elbows and arrowhead pileups). ELK layered (direction DOWN,
-  Brandes–Köpf placement) positions nodes only — edge routing is left to the
-  official Svelte Flow "floating edges" pattern. ELK is loaded lazily.
-- **Rounded orthogonal edges, bottom → top only (final geometry)**: ELK owns
-  both node placement and edge routing (orthogonal, obstacle-aware with
-  `spacing.edgeNode: 24`). Every card has one fixed bottom-center source port
-  and one top-center target port. A custom `rounded` edge renders ELK's routed
-  polyline with 7px rounded corners (`M`/`L`/`Q`), so arrows always leave the
-  bottom-center, always enter the top-center, stay straight with soft bends,
-  and never cross card bodies in laid-out graphs — verified geometrically with
-  a headless test that intersects every edge polyline with every card rectangle
-  (zero hits). Routes are seeded from ELK into the edge data; dragging re-anchors
-  the seeded route to the measured card edges (the final leg stretches to the
-  target's top-center) instead of falling back to an un-routed straight line.
-  This supersedes the floating-bezier experiment.
-- **Themed canvas UI (official styles)**: `@xyflow/svelte/xy-theme.css` is
-  imported in `layout.css` with the documented layer order
-  (`@layer theme, base, xyflow, components, utilities;`), plus light-mode CSS
-  variable overrides (edge stroke, dots, controls, minimap, handles). The
-  canvas uses `forceColorMode="light"`, the official `<MiniMap>`
-  (bottom-right, pannable/zoomable), `<Controls>`, and a `<Panel>` legend
-  ("→ blocks") — the example-app look instead of hand-rolled chrome. The
-  theme's default node padding/border is reset for issue and frame nodes: both
-  components draw their own box and must fill ELK's exact card dimensions, or
-  clamped titles and offset edge anchors follow.
-- **Native-only blocking relationships (latest decision)**: dependencies come
-  exclusively from GitHub's issue **Relationships attribute** (GraphQL
-  `Issue.blockedBy`, REST `dependencies/blocked_by`). Body text, task lists and
-  labels are NOT parsed — real repos (niaefeup/tts, sveltejs/svelte) showed
-  stale or prose-style mentions creating false and reversed edges. The text
-  parser was removed entirely, along with task-list PR refs. Trade-offs:
-  - Anonymous REST can only enumerate native relationships within the 60/hr
-    budget (honest warnings; PAT recommended for complete graphs).
-  - Repositories that don't use the Relationships attribute show no dependency
-    edges; the board displays an explanatory hint in that case.
-  - Old decisions about text parsing/label keywords/bare-noun exclusions are
-    superseded and kept below only as history.
-- **Content-sized cards**: card height is estimated per issue in `graph.ts`
-  from the same row constants `IssueNode.svelte` renders with (header 18px,
-  title ≤3 lines × 17px, labels 18px, milestone 15px, heat 15px, badges 18px,
-  4px gaps, 20px padding) — no fixed height, no dead space, no clipped titles.
-  Cards use `rounded-md` + `shadow-sm` to match the example aesthetic.
-- **Selection clarity**: edges touching the selected issue are emphasized
-  (red-800, 2.5px) and unrelated edges dim to 25% while a drawer is open.
+- **Reference and stack**: `martonpaulo/issues-graph` (MIT) is the visual and
+  layout reference: React Flow + ELK, compact pastel cards, Figtree/Gabarito.
+  We keep Svelte Flow and the native-only data layer; the layout configuration
+  and visual language port directly. Excalidraw remains rejected (React
+  runtime, drawing model rather than live data cards).
+- **One ELK pass, landscape packing**: every dependency chain goes into a single
+  ELK graph (`layered`, DOWN, `ORTHOGONAL`, `NETWORK_SIMPLEX`, `LAYER_SWEEP`,
+  spacing 28/76/20/16, `separateConnectedComponents`, component spacing 96,
+  `aspectRatio 1.9`), so components pack against each other instead of being
+  stacked in source order. Loose issues use shortest-column packing with an
+  adaptive column count targeting a final canvas aspect of ~1.4; the narrower
+  of the chain cluster and the loose block is centered against the wider one.
+  Chain frames are drawn after layout (16px padding, 26px label strip). ELK is
+  still lazy-loaded.
+- **Compact cards**: 240px wide, 75–147px tall: header (number + state word),
+  title 1–4 lines × 17px, optional one 17px row of label chips, and a footer
+  (assignees on the left; first PR, resolved-blocker count, or milestone on the
+  right). Reactions, avatars, the old milestone row and badge rows live only in
+  the drawer. `graph.ts` height constants mirror `IssueNode.svelte` exactly; no
+  flex row may grow or shrink.
+- **State on the card surface**: blocked = amber, in progress = blue, in review
+  = teal, unassigned = white, closed = grey. The state word sits top-right, and
+  blocked appends the open/total count (`blocked · 2/3`) with a tooltip. Colour
+  is never the only signal — the state is always written.
+- **Quiet edges**: every dependency is 1.3px `#8c97a8` at 75% opacity with 7px
+  rounded corners; connected edges lift to accent blue on hover/selection and
+  unrelated edges dim to 20%. Blocked state lives on the target card, not in a
+  red stroke.
+- **Fonts and surfaces**: Figtree 400/500/600 body, Gabarito 700 display, mono
+  issue numbers; `#f3f5f8` canvas, white/pastel cards with 1px lines, 10px card
+  radius, 14px frame radius and a soft shadow. Chain frames are pale blue and
+  filled; the independent frame is dashed and unfilled. Canvas dots are 24px.
+  `@xyflow/svelte/xy-theme.css` keeps the documented layer order and light-mode
+  variable overrides. The theme's default node padding/border is reset for issue
+  and frame nodes so both components fill ELK's exact dimensions.
+- **Chrome and interaction**: one quiet 12px header row (repo, scope toggle,
+  filters, Auto-Layout, arrow legend, counts). Wheel pans (`panOnScroll`, 0.6),
+  pinch zooms, double-click zoom is disabled. The MiniMap, zoom Controls and
+  floating legend panel are removed; the header's Auto-Layout action refits and
+  the arrow legend now lives in the header.
+- **Edge geometry guarantee**: every card has one fixed bottom-center source
+  port and one top-center target port. After ELK routes, `avoidCards` repairs
+  any segment that would cross a card using global free corridors. Headless
+  tests check zero edge/card intersections, bottom/top anchors, rounded paths,
+  frame overlap, title overflow and drag behavior. Dragging re-anchors the
+  seeded route (stretching the final leg) instead of falling back to a straight
+  line.
+- **Superseded in this pass**: red edges / red left strip / corner counter,
+  avatar and milestone rows on cards, per-chain ELK with a vertical frame stack,
+  the floating-bezier experiment, the `Panel` legend, the MiniMap and the zoom
+  Controls.

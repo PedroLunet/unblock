@@ -103,13 +103,18 @@
 
 <div class="flex h-dvh flex-col">
 	<header
-		class="flex flex-wrap items-center gap-3 border-b border-neutral-300 bg-white px-4 py-2 text-sm"
+		class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-board px-4 py-2 text-[12px]"
 	>
-		<button type="button" class="text-neutral-600" onclick={() => goto(resolve('/'))}>
-			← unblock
+		<button
+			type="button"
+			class="flex items-center gap-2 text-quiet transition-colors hover:text-ink"
+			onclick={() => goto(resolve('/'))}
+		>
+			<span aria-hidden="true">←</span>
+			<span class="font-display text-[15px] font-bold tracking-[-0.02em] text-ink">unblock</span>
 		</button>
 		<a
-			class="font-mono text-neutral-900 underline"
+			class="font-mono text-[12px] text-ink/80 no-underline underline-offset-2 hover:text-ink hover:underline"
 			href={`https://github.com/${owner}/${repo}`}
 			target="_blank"
 			rel="external noreferrer"
@@ -117,21 +122,21 @@
 			{owner}/{repo}
 		</a>
 
-		<div class="flex border border-neutral-300">
+		<div class="flex items-center rounded-md border border-line-strong bg-white p-0.5">
 			<button
 				type="button"
-				class="px-2 py-1 text-xs {scope === 'open'
-					? 'bg-neutral-900 text-white'
-					: 'bg-white text-neutral-700'}"
+				class="rounded px-2 py-0.5 text-[11px] transition-colors {scope === 'open'
+					? 'bg-accent text-white'
+					: 'text-quiet hover:text-ink'}"
 				onclick={() => (scope = 'open')}
 			>
 				Open Only
 			</button>
 			<button
 				type="button"
-				class="border-l border-neutral-300 px-2 py-1 text-xs {scope === 'all'
-					? 'bg-neutral-900 text-white'
-					: 'bg-white text-neutral-700'}"
+				class="rounded px-2 py-0.5 text-[11px] transition-colors {scope === 'all'
+					? 'bg-accent text-white'
+					: 'text-quiet hover:text-ink'}"
 				onclick={() => (scope = 'all')}
 			>
 				Show All
@@ -139,7 +144,7 @@
 		</div>
 
 		<select
-			class="border border-neutral-300 bg-white px-2 py-1 text-xs"
+			class="h-7 rounded-md border border-line-strong bg-white px-2 text-[11px] text-ink focus:border-accent focus:outline-none"
 			aria-label="Milestone filter"
 			bind:value={milestone}
 			onchange={() => void rebuild()}
@@ -151,7 +156,7 @@
 		</select>
 
 		<select
-			class="border border-neutral-300 bg-white px-2 py-1 text-xs"
+			class="h-7 rounded-md border border-line-strong bg-white px-2 text-[11px] text-ink focus:border-accent focus:outline-none"
 			aria-label="Assignee filter"
 			bind:value={assignee}
 			onchange={() => void rebuild()}
@@ -162,28 +167,37 @@
 			{/each}
 		</select>
 
-		<label class="flex items-center gap-1.5 text-xs text-neutral-700">
-			<input type="checkbox" bind:checked={hasOpenPR} onchange={() => void rebuild()} />
+		<label class="flex items-center gap-1.5 text-[11px] text-quiet">
+			<input
+				type="checkbox"
+				class="accent-accent"
+				bind:checked={hasOpenPR}
+				onchange={() => void rebuild()}
+			/>
 			Has open PR
 		</label>
 
 		<button
 			type="button"
-			class="border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"
+			class="h-7 rounded-md border border-line-strong bg-white px-2 text-[11px] text-ink transition-colors hover:border-accent hover:text-accent"
 			onclick={() => void rebuild()}
 		>
 			Auto-Layout
 		</button>
 
+		<span class="hidden items-center gap-1.5 text-[11px] text-quiet lg:flex">
+			<span class="inline-block w-4 border-t border-edge"></span>blocker → dependent
+		</span>
+
 		{#if counts}
-			<span class="ml-auto text-xs text-neutral-500">
+			<span class="ml-auto text-[11px] text-quiet tabular-nums">
 				{counts.issues} issues · {counts.edges} edges · {counts.chains} chains
 			</span>
 		{/if}
 	</header>
 
 	{#if data && data.meta.warnings.length > 0}
-		<details class="border-b border-amber-300 bg-amber-50 px-4 py-1 text-xs text-amber-900">
+		<details class="border-b border-amber-200 bg-amber-50/80 px-4 py-1 text-[11px] text-amber-900">
 			<summary class="cursor-pointer">data notes ({data.meta.warnings.length})</summary>
 			<ul class="mt-1 flex list-disc flex-col gap-0.5 pl-5">
 				{#each data.meta.warnings as warning, index (index)}
@@ -208,7 +222,7 @@
 
 			{#if loading}
 				<div
-					class="absolute inset-0 flex items-center justify-center bg-white/70 text-sm text-neutral-600"
+					class="absolute inset-0 flex items-center justify-center bg-board/70 text-[12px] text-quiet"
 				>
 					{progress || 'Loading…'}
 				</div>
@@ -216,12 +230,12 @@
 
 			{#if error}
 				<div
-					class="absolute inset-x-4 top-4 border border-red-300 bg-white p-3 text-sm text-red-700"
+					class="absolute inset-x-4 top-4 rounded-lg border border-red-200 bg-white p-3 text-[12px] text-red-700 shadow-card"
 				>
 					<p>{error}</p>
 					<button
 						type="button"
-						class="mt-2 border border-red-300 px-2 py-1 text-xs text-red-700"
+						class="mt-2 rounded-md border border-red-200 px-2 py-1 text-[11px] text-red-700 hover:bg-red-50"
 						onclick={() => void load(scope)}
 					>
 						Retry
@@ -231,7 +245,7 @@
 
 			{#if !loading && counts && counts.issues === 0}
 				<div
-					class="absolute bottom-4 left-1/2 -translate-x-1/2 border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-600"
+					class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-lg border border-line bg-white px-3 py-2 text-[11px] text-quiet shadow-card"
 				>
 					No issues match the current filters.
 				</div>
@@ -239,7 +253,7 @@
 
 			{#if !loading && !error && counts && counts.edges === 0}
 				<div
-					class="absolute top-4 left-1/2 max-w-md -translate-x-1/2 border border-neutral-300 bg-white px-3 py-2 text-center text-xs text-neutral-600"
+					class="absolute top-4 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-line bg-white px-3 py-2 text-center text-[11px] text-quiet shadow-card"
 				>
 					No native blocking relationships in this view. Dependencies come from GitHub's issue
 					Relationships attribute only.
