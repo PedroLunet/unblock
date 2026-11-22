@@ -1,11 +1,17 @@
 <script lang="ts">
-	import { BaseEdge } from '@xyflow/svelte';
+	import { BaseEdge, useInternalNode } from '@xyflow/svelte';
 	import type { EdgeProps } from '@xyflow/svelte';
+	import type { RoundedEdgeData } from './graph';
 
 	type Pt = { x: number; y: number };
 	const RADIUS = 7;
 
-	let { data, markerEnd, style }: EdgeProps = $props();
+	let { source, target, data, markerEnd, style }: EdgeProps = $props();
+
+	// The routed polyline is seeded by ELK. Follow node drags by shifting the
+	// whole route with its source node instead of leaving it at build coords.
+	const sourceNode = useInternalNode(() => ({ id: source }));
+	const targetNode = useInternalNode(() => ({ id: target }));
 
 	function roundedPath(rawPoints: Pt[]): string {
 		const points = rawPoints.filter((p, i) => {
@@ -35,9 +41,24 @@
 	}
 
 	const path = $derived.by(() => {
-		const seeded = (data as { points?: Pt[] } | undefined)?.points ?? [];
+		const edgeData = data as RoundedEdgeData | undefined;
+		const seeded = edgeData?.points ?? [];
 		if (seeded.length < 2) return '';
-		return roundedPath(seeded);
+
+		const origin = edgeData?.origin;
+		const currentSource = sourceNode.current?.internals.positionAbsolute;
+		const currentTarget = targetNode.current?.internals.positionAbsolute;
+		let offsetX = 0;
+		let offsetY = 0;
+		if (origin && currentSource) {
+			offsetX = currentSource.x - origin.source.x;
+			offsetY = currentSource.y - origin.source.y;
+		} else if (origin && currentTarget) {
+			offsetX = currentTarget.x - origin.target.x;
+			offsetY = currentTarget.y - origin.target.y;
+		}
+		if (offsetX === 0 && offsetY === 0) return roundedPath(seeded);
+		return roundedPath(seeded.map((p) => ({ x: p.x + offsetX, y: p.y + offsetY })));
 	});
 </script>
 
