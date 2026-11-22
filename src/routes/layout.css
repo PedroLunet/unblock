@@ -4,6 +4,46 @@
 @plugin '@tailwindcss/typography';
 @import '@xyflow/svelte/xy-theme.css';
 
+/* Docker's 2026 fallback typefaces and palette, tuned for a light product UI. */
+@theme {
+	--font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+	--color-canvas: #f5f2ee;
+	--color-paper: #fffdfa;
+	--color-ink: #1d1d1d;
+	--color-warm: #ddd4c9;
+	--color-line: #e7dfd5;
+	--color-chip: #f0ebe4;
+	--color-chip-line: #e3d9ce;
+	--color-muted: #5f5852;
+	--color-quiet: #756c63;
+	--color-brand: #6172ff;
+	--color-brand-strong: #475bff;
+	--color-brand-deep: #3345d6;
+	--color-alert: #ff3d40;
+	--color-alert-strong: #d92d30;
+	--color-launch: #c2410c;
+	--color-positive: #078657;
+}
+
+html {
+	font-family: var(--font-sans);
+	font-optical-sizing: auto;
+	background: var(--color-canvas);
+	color: var(--color-ink);
+}
+
+body {
+	background: var(--color-canvas);
+	color: var(--color-ink);
+}
+
+::selection {
+	background: var(--color-brand);
+	color: #fffdfa;
+}
+
 /* The xy-theme default node chrome insets every node by 10px + 1px border.
    Our card/frame components draw their own box and must fill the exact
    width/height ELK lays out, so the wrapper stays chrome-free. */
@@ -17,18 +57,44 @@
 	text-align: left;
 }
 
-/* Svelte Flow theme tweaks: light, neutral, high-contrast. */
+/* Svelte Flow chrome: warm paper, soft edges, no default cool grays. */
 .svelte-flow {
-	--xy-edge-stroke: #c4c4c4;
-	--xy-background-pattern-dots-color: #cfcfcf;
-	--xy-controls-button-background-color: #ffffff;
-	--xy-controls-button-background-color-hover: #f5f5f5;
-	--xy-controls-button-border-color: #e5e5e5;
-	--xy-controls-box-shadow: 0 0 2px 1px rgb(0 0 0 / 0.06);
-	--xy-attribution-background-color: rgb(255 255 255 / 0.65);
-	--xy-minimap-background-color: #ffffff;
-	--xy-minimap-mask-background-color: rgb(245 245 245 / 0.7);
-	--xy-minimap-node-background-color: #d4d4d4;
-	--xy-handle-background-color: #a3a3a3;
-	--xy-handle-border-color: #ffffff;
+	--xy-edge-stroke: #b7aea4;
+	--xy-background-color: #f5f2ee;
+	--xy-background-pattern-dots-color: #ddd4c9;
+	--xy-controls-button-background-color: #fffdfa;
+	--xy-controls-button-background-color-hover: #f5f2ee;
+	--xy-controls-button-border-color: #e7dfd5;
+	--xy-controls-box-shadow: 0 1px 2px 1px rgb(16 16 16 / 0.04);
+	--xy-attribution-background-color: rgb(245 242 238 / 0.8);
+	--xy-minimap-background-color: #fffdfa;
+	--xy-minimap-mask-background-color: rgb(245 242 238 / 0.7);
+	--xy-minimap-node-background-color: #ddd4c9;
+	--xy-handle-background-color: #b7aea4;
+	--xy-handle-border-color: #fffdfa;
+}
+
+.svelte-flow__controls {
+	overflow: hidden;
+	border: 1px solid var(--color-line);
+	border-radius: 10px;
+}
+
+.svelte-flow__controls-button {
+	border-bottom-color: var(--color-line);
+	color: var(--color-muted);
+}
+
+.svelte-flow__minimap {
+	overflow: hidden;
+	border: 1px solid var(--color-line);
+	border-radius: 10px;
+	box-shadow: 0 1px 2px rgb(16 16 16 / 0.04);
+}
+
+.svelte-flow__attribution {
+	background: rgb(245 242 238 / 0.8);
+	color: var(--color-quiet);
+	font-family: var(--font-mono);
+	font-size: 9px;
 }
