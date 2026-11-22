@@ -9,5 +9,8 @@
 		"directory": ".svelte-kit/cloudflare"
 	},
 	"workers_dev": true,
-	"preview_urls": true
+	"preview_urls": true,
+	"vars": {
+    "GITHUB_CLIENT_ID": "Ov23likmeH6vctgjs4PX"
+  },
 }
