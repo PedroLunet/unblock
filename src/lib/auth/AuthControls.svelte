@@ -68,12 +68,12 @@
 					referrerpolicy="no-referrer"
 				/>
 			{/if}
-			<span class="text-neutral-700">
-				Signed in as <span class="font-medium text-neutral-900">@{session.user.login}</span>
+			<span class="text-muted">
+				Signed in as <span class="font-medium text-ink">@{session.user.login}</span>
 			</span>
 			{#if hasPrivateAccess}
 				<span
-					class="rounded border border-neutral-300 bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-600"
+					class="rounded-[5px] border border-warm bg-canvas px-1.5 py-0.5 font-mono text-[9px] tracking-[0.04em] text-muted"
 				>
 					private access
 				</span>
@@ -81,29 +81,29 @@
 				<form method="GET" action={resolve('/auth/github/start')} class="inline-flex">
 					<input type="hidden" name="next" value={target} />
 					<input type="hidden" name="private" value="1" />
-					<button type="submit" class="text-xs text-neutral-600 underline">
+					<button type="submit" class="text-xs font-medium text-brand-strong hover:underline">
 						Enable private repos
 					</button>
 				</form>
 			{/if}
 			<button
 				type="button"
-				class="rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900 disabled:text-neutral-400"
+				class="rounded-md border border-warm bg-paper px-2 py-1 text-xs text-ink hover:bg-canvas disabled:text-quiet"
 				disabled={signingOut}
 				onclick={() => void handleSignOut()}
 			>
 				{signingOut ? 'Signing out…' : 'Sign out'}
 			</button>
 		{:else if session.loading}
-			<span class="text-neutral-500">Checking GitHub session…</span>
+			<span class="text-quiet">Checking GitHub session…</span>
 		{:else if !session.configured}
 			{#if showUnavailable}
-				<span class="text-neutral-500">GitHub sign-in is not configured on this deployment.</span>
+				<span class="text-quiet">GitHub sign-in is not configured on this deployment.</span>
 			{/if}
 		{:else}
 			{#if showPrivateChoice}
-				<label class="flex items-center gap-1.5 text-neutral-700">
-					<input type="checkbox" bind:checked={includePrivate} />
+				<label class="flex items-center gap-1.5 text-muted">
+					<input type="checkbox" class="accent-brand" bind:checked={includePrivate} />
 					Include private repositories
 				</label>
 			{/if}
@@ -114,7 +114,7 @@
 				{/if}
 				<button
 					type="submit"
-					class="rounded border border-neutral-900 bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-neutral-800"
+					class="rounded-md bg-brand-strong px-2.5 py-1 text-xs font-medium text-paper shadow-sm hover:bg-brand-deep"
 				>
 					Sign in with GitHub
 				</button>
@@ -123,6 +123,6 @@
 	</div>
 
 	{#if authError}
-		<p class="text-xs text-red-700" role="alert">{authErrorMessage}</p>
+		<p class="text-xs text-[#a9272a]" role="alert">{authErrorMessage}</p>
 	{/if}
 </div>

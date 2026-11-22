@@ -116,15 +116,19 @@
 	}
 </script>
 
-<div class="flex h-dvh flex-col">
+<div class="flex h-dvh flex-col bg-canvas">
 	<header
-		class="flex flex-wrap items-center gap-3 border-b border-neutral-300 bg-white px-4 py-2 text-sm"
+		class="flex flex-wrap items-center gap-3 border-b border-warm/80 bg-canvas/85 px-4 py-2 text-sm backdrop-blur-md"
 	>
-		<button type="button" class="text-neutral-600" onclick={() => goto(resolve('/'))}>
+		<button
+			type="button"
+			class="-ml-2 rounded-md px-2 py-1 text-xs font-medium text-muted transition-colors hover:bg-paper hover:text-ink"
+			onclick={() => goto(resolve('/'))}
+		>
 			← unblock
 		</button>
 		<a
-			class="font-mono text-neutral-900 underline"
+			class="font-mono text-xs font-medium text-ink underline decoration-warm underline-offset-4 hover:decoration-ink"
 			href={`https://github.com/${owner}/${repo}`}
 			target="_blank"
 			rel="external noreferrer"
@@ -132,21 +136,21 @@
 			{owner}/{repo}
 		</a>
 
-		<div class="flex border border-neutral-300">
+		<div class="flex rounded-lg border border-line bg-[#ece6de] p-0.5">
 			<button
 				type="button"
-				class="px-2 py-1 text-xs {scope === 'open'
-					? 'bg-neutral-900 text-white'
-					: 'bg-white text-neutral-700'}"
+				class="rounded-[6px] px-2.5 py-1 text-[11px] font-medium transition-colors {scope === 'open'
+					? 'bg-paper text-ink shadow-sm'
+					: 'text-muted hover:text-ink'}"
 				onclick={() => (scope = 'open')}
 			>
 				Open Only
 			</button>
 			<button
 				type="button"
-				class="border-l border-neutral-300 px-2 py-1 text-xs {scope === 'all'
-					? 'bg-neutral-900 text-white'
-					: 'bg-white text-neutral-700'}"
+				class="rounded-[6px] px-2.5 py-1 text-[11px] font-medium transition-colors {scope === 'all'
+					? 'bg-paper text-ink shadow-sm'
+					: 'text-muted hover:text-ink'}"
 				onclick={() => (scope = 'all')}
 			>
 				Show All
@@ -154,7 +158,7 @@
 		</div>
 
 		<select
-			class="border border-neutral-300 bg-white px-2 py-1 text-xs"
+			class="rounded-md border border-warm bg-paper px-2 py-1 text-[11px] text-ink shadow-sm focus:ring-2 focus:ring-brand/25 focus:outline-none"
 			aria-label="Milestone filter"
 			bind:value={milestone}
 			onchange={() => void rebuild()}
@@ -166,7 +170,7 @@
 		</select>
 
 		<select
-			class="border border-neutral-300 bg-white px-2 py-1 text-xs"
+			class="rounded-md border border-warm bg-paper px-2 py-1 text-[11px] text-ink shadow-sm focus:ring-2 focus:ring-brand/25 focus:outline-none"
 			aria-label="Assignee filter"
 			bind:value={assignee}
 			onchange={() => void rebuild()}
@@ -177,21 +181,26 @@
 			{/each}
 		</select>
 
-		<label class="flex items-center gap-1.5 text-xs text-neutral-700">
-			<input type="checkbox" bind:checked={hasOpenPR} onchange={() => void rebuild()} />
+		<label class="flex items-center gap-1.5 text-xs text-muted">
+			<input
+				type="checkbox"
+				class="accent-brand"
+				bind:checked={hasOpenPR}
+				onchange={() => void rebuild()}
+			/>
 			Has open PR
 		</label>
 
 		<button
 			type="button"
-			class="border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"
+			class="rounded-md border border-warm bg-paper px-2.5 py-1 text-[11px] font-medium text-ink shadow-sm transition-[background-color,transform] hover:bg-canvas active:scale-[0.98]"
 			onclick={() => void rebuild()}
 		>
 			Auto-Layout
 		</button>
 
 		{#if counts}
-			<span class="ml-auto text-xs text-neutral-500">
+			<span class="ml-auto font-mono text-[10px] text-quiet">
 				{counts.issues} issues · {counts.edges} edges · {counts.chains} chains
 			</span>
 		{/if}
@@ -202,8 +211,8 @@
 	</header>
 
 	{#if data && data.meta.warnings.length > 0}
-		<details class="border-b border-amber-300 bg-amber-50 px-4 py-1 text-xs text-amber-900">
-			<summary class="cursor-pointer">data notes ({data.meta.warnings.length})</summary>
+		<details class="border-b border-[#f0d3ba] bg-[#ffcea5]/20 px-4 py-1 text-xs text-[#7a4a2a]">
+			<summary class="cursor-pointer font-medium">data notes ({data.meta.warnings.length})</summary>
 			<ul class="mt-1 flex list-disc flex-col gap-0.5 pl-5">
 				{#each data.meta.warnings as warning, index (index)}
 					<li>{warning}</li>
@@ -229,7 +238,7 @@
 
 			{#if loading}
 				<div
-					class="absolute inset-0 flex items-center justify-center bg-white/70 text-sm text-neutral-600"
+					class="absolute inset-0 flex items-center justify-center bg-canvas/70 text-xs text-muted backdrop-blur-sm"
 				>
 					{progress || 'Loading…'}
 				</div>
@@ -237,12 +246,12 @@
 
 			{#if error}
 				<div
-					class="absolute inset-x-4 top-4 border border-red-300 bg-white p-3 text-sm text-red-700"
+					class="absolute inset-x-4 top-4 rounded-xl border border-alert/25 bg-paper p-3 text-sm text-[#a9272a] shadow-sm"
 				>
 					<p>{error}</p>
 					<button
 						type="button"
-						class="mt-2 border border-red-300 px-2 py-1 text-xs text-red-700"
+						class="mt-2 rounded-md border border-alert/25 px-2 py-1 text-xs text-[#a9272a] hover:bg-[#fff2f1]"
 						onclick={() => void load(scope)}
 					>
 						Retry
@@ -252,7 +261,7 @@
 
 			{#if !loading && counts && counts.issues === 0}
 				<div
-					class="absolute bottom-4 left-1/2 -translate-x-1/2 border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-600"
+					class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-warm bg-paper px-3 py-2 text-xs text-muted shadow-sm"
 				>
 					No issues match the current filters.
 				</div>
@@ -260,7 +269,7 @@
 
 			{#if !loading && !error && counts && counts.edges === 0}
 				<div
-					class="absolute top-4 left-1/2 max-w-md -translate-x-1/2 border border-neutral-300 bg-white px-3 py-2 text-center text-xs text-neutral-600"
+					class="absolute top-4 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-warm bg-paper/95 px-3 py-2 text-center text-xs text-muted shadow-sm"
 				>
 					No native blocking relationships in this view. Dependencies come from GitHub's issue
 					Relationships attribute only.

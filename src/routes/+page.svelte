@@ -23,64 +23,71 @@
 	}
 </script>
 
-<div class="mx-auto max-w-2xl px-4 py-8">
-	<header class="flex flex-col gap-1">
-		<h1 class="text-lg font-bold text-neutral-900">unblock</h1>
-		<p class="text-sm text-neutral-600">GitHub issue &amp; dependency board</p>
-		<p class="text-xs text-neutral-500">
+<div class="mx-auto max-w-2xl px-4 py-12">
+	<header class="flex flex-col gap-1.5">
+		<h1 class="text-xl font-semibold tracking-[-0.02em] text-ink">unblock</h1>
+		<p class="text-sm text-muted">GitHub issue &amp; dependency board</p>
+		<p class="text-xs leading-relaxed text-quiet">
 			Paste a public repository, or sign in with GitHub for private repos and higher rate limits.
 		</p>
 	</header>
 
-	<div class="mt-6 rounded border border-neutral-300 bg-neutral-50 p-3">
+	<div class="mt-8 rounded-xl border border-warm bg-paper p-4 shadow-sm">
 		<AuthControls next={authNext} showPrivateChoice showUnavailable />
-		<p class="mt-2 text-xs text-neutral-500">
+		<p class="mt-3 text-xs leading-relaxed text-quiet">
 			Public repositories work without signing in. Signing in raises the limit to 5,000
 			requests/hour and enables complete dependency data. Private repositories require GitHub's
-			broad <code>repo</code> scope (OAuth has no read-only private scope).
+			broad <code class="font-mono text-[10px] text-muted">repo</code> scope (OAuth has no read-only private
+			scope).
 		</p>
 	</div>
 
 	<form
-		class="mt-6 flex flex-col gap-4"
+		class="mt-8 flex flex-col gap-5"
 		onsubmit={(event) => {
 			event.preventDefault();
 			openBoard();
 		}}
 	>
-		<div class="flex flex-col gap-1">
-			<div class="flex flex-wrap gap-2">
-				<input
-					type="text"
-					class="min-w-64 flex-1 rounded border border-neutral-300 px-2 py-1.5 text-sm"
-					placeholder="github.com/owner/repo or owner/repo"
-					aria-label="Repository"
-					bind:value={repoInput}
-				/>
-			</div>
+		<div class="flex flex-col gap-1.5">
+			<label
+				for="repository"
+				class="font-mono text-[9px] font-medium tracking-[0.1em] text-quiet uppercase"
+			>
+				repository
+			</label>
+			<input
+				id="repository"
+				type="text"
+				class="min-w-64 flex-1 rounded-md border border-warm bg-paper px-3 py-2 text-sm text-ink shadow-sm placeholder:text-quiet focus:ring-2 focus:ring-brand/25 focus:outline-none"
+				placeholder="github.com/owner/repo or owner/repo"
+				bind:value={repoInput}
+			/>
 			{#if parsedInput}
-				<p class="text-xs text-neutral-500">Will open {parsedInput.owner}/{parsedInput.repo}</p>
+				<p class="font-mono text-[10px] text-quiet">
+					will open <span class="text-muted">{parsedInput.owner}/{parsedInput.repo}</span>
+				</p>
 			{:else if inputError}
-				<p class="text-xs text-red-700">Enter owner/repo or a GitHub URL</p>
+				<p class="text-xs text-[#a9272a]">Enter owner/repo or a GitHub URL</p>
 			{/if}
 		</div>
 
 		<div class="flex flex-wrap items-center gap-3">
-			<div class="inline-flex overflow-hidden rounded border border-neutral-300 text-sm">
+			<div class="inline-flex rounded-lg border border-warm bg-[#ece6de] p-0.5 text-sm">
 				<button
 					type="button"
-					class="border-r border-neutral-300 px-3 py-1.5 {scope === 'open'
-						? 'bg-neutral-900 text-white'
-						: 'bg-white text-neutral-900'}"
+					class="rounded-[6px] px-3 py-1.5 transition-colors {scope === 'open'
+						? 'bg-paper text-ink shadow-sm'
+						: 'text-muted hover:text-ink'}"
 					onclick={() => (scope = 'open')}
 				>
 					Open Only
 				</button>
 				<button
 					type="button"
-					class="px-3 py-1.5 {scope === 'all'
-						? 'bg-neutral-900 text-white'
-						: 'bg-white text-neutral-900'}"
+					class="rounded-[6px] px-3 py-1.5 transition-colors {scope === 'all'
+						? 'bg-paper text-ink shadow-sm'
+						: 'text-muted hover:text-ink'}"
 					onclick={() => (scope = 'all')}
 				>
 					Show Everything
@@ -88,7 +95,7 @@
 			</div>
 			<button
 				type="submit"
-				class="rounded border border-neutral-900 bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500"
+				class="rounded-md bg-brand-strong px-3.5 py-2 text-sm font-medium text-paper shadow-sm transition-[background-color,transform] hover:bg-brand-deep active:scale-[0.98] disabled:bg-warm disabled:text-quiet disabled:shadow-none"
 				disabled={!parsedInput}
 			>
 				Open board
@@ -96,7 +103,9 @@
 		</div>
 	</form>
 
-	<footer class="mt-8">
-		<a class="text-xs text-neutral-500 underline" href={resolve('/debug')}>raw data check</a>
+	<footer class="mt-10">
+		<a class="text-xs font-medium text-brand-strong hover:underline" href={resolve('/debug')}>
+			raw data check
+		</a>
 	</footer>
 </div>
