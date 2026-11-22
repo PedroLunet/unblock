@@ -42,14 +42,31 @@
 	}
 
 	function prStatus(pr: LinkedPR): string {
-		if (pr.draft === true) return 'DRAFT';
-		if (pr.state === 'open') return 'OPEN';
-		if (pr.state === 'merged') return 'MERGED';
-		return 'CLOSED';
+		if (pr.draft === true) return 'draft';
+		if (pr.state === 'open') return 'open';
+		if (pr.state === 'merged') return 'merged';
+		return 'closed';
+	}
+
+	function prDotClass(pr: LinkedPR): string {
+		if (pr.draft === true) return 'bg-launch';
+		if (pr.state === 'open') return 'bg-positive';
+		if (pr.state === 'merged') return 'bg-brand';
+		return 'bg-quiet';
+	}
+
+	function labelStyle(color: string): string {
+		const safe = /^[0-9a-f]{6}$/i.test(color) ? color : 'd4d4d4';
+		return `--label-color: #${safe}`;
 	}
 
 	function daysAgo(iso: string): number {
-		return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+		return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
+	}
+
+	function hideBrokenAvatar(event: Event): void {
+		const image = event.currentTarget as HTMLImageElement | null;
+		if (image) image.hidden = true;
 	}
 
 	let blockedBy = $derived(resolveRows(issue.blockedBy));
@@ -57,58 +74,75 @@
 </script>
 
 <div
-	class="flex h-full w-full flex-col gap-3 overflow-y-auto border-l border-neutral-300 bg-white p-4 text-sm"
+	class="flex h-full w-full flex-col gap-4 overflow-y-auto border-l border-warm bg-paper p-5 text-sm text-ink"
 >
 	<div class="flex items-start justify-between gap-2">
 		<div class="flex items-center gap-2">
-			<span class="font-mono text-xs text-neutral-500">#{issue.number}</span>
-			<span
-				class="border px-1 text-[10px] uppercase {issue.state === 'open'
-					? 'border-green-600 text-green-700'
-					: 'border-neutral-300 text-neutral-500'}"
-			>
-				{issue.state}
+			<span class="font-mono text-[11px] leading-none text-quiet tabular-nums">
+				#{issue.number}
 			</span>
+			{#if issue.state === 'closed'}
+				<span
+					class="font-mono text-[9.5px] leading-none font-medium tracking-[0.08em] text-muted uppercase"
+				>
+					closed
+				</span>
+			{/if}
 		</div>
 		<button
 			type="button"
-			class="border border-neutral-300 px-2 py-0.5 text-xs text-neutral-700"
+			class="rounded-md border border-warm bg-paper px-2 py-0.5 text-[11px] font-medium text-muted transition-[background-color,transform] hover:bg-canvas hover:text-ink active:scale-[0.97]"
 			onclick={onclose}
 		>
 			Close
 		</button>
 	</div>
 
-	<div class="flex flex-col gap-1">
+	<div class="flex flex-col gap-1.5">
 		<a
-			class="font-medium text-neutral-900 underline"
+			class="text-[15px] leading-snug font-semibold tracking-[-0.014em] text-ink decoration-warm underline-offset-2 hover:text-brand hover:underline"
 			href={issue.url}
 			target="_blank"
 			rel="external noreferrer"
 		>
 			{issue.title}
 		</a>
-		<p class="text-xs text-neutral-500">
-			by {issue.author ? `@${issue.author}` : 'unknown'} · opened {daysAgo(issue.createdAt)}d ago ·
-			updated {daysAgo(issue.updatedAt)}d ago
+		<p class="font-mono text-[10px] leading-none text-quiet">
+			by <span class="text-muted">{issue.author ? `@${issue.author}` : 'unknown'}</span>
+			· opened {daysAgo(issue.createdAt)}d ago · updated {daysAgo(issue.updatedAt)}d ago
 		</p>
 	</div>
 
-	<dl class="flex flex-col gap-1 text-xs">
+	<dl class="flex flex-col gap-2 text-[11.5px]">
 		<div class="flex gap-2">
-			<dt class="w-20 shrink-0 text-neutral-500">assignees</dt>
-			<dd class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-neutral-900">
+			<dt
+				class="w-20 shrink-0 font-mono text-[9px] leading-4 tracking-[0.08em] text-quiet uppercase"
+			>
+				assignees
+			</dt>
+			<dd class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-muted">
 				{#if issue.assignees.length === 0}
-					<span class="font-bold">Unassigned</span>
+					<span class="font-medium text-muted">Unassigned</span>
 				{:else}
 					{#each issue.assignees as assignee (assignee.login)}
-						<span class="flex items-center gap-1">
-							<img
-								src={assignee.avatarUrl}
-								alt=""
-								loading="lazy"
-								class="h-4 w-4 shrink-0 rounded-full border border-neutral-300"
-							/>
+						<span class="flex items-center gap-1.5">
+							<span
+								class="relative h-[18px] w-[18px] shrink-0 overflow-hidden rounded-full bg-warm ring-2 ring-paper"
+							>
+								<span
+									class="absolute inset-0 flex items-center justify-center font-mono text-[8px] font-medium text-muted"
+									aria-hidden="true"
+								>
+									{assignee.login.slice(0, 1).toUpperCase()}
+								</span>
+								<img
+									src={assignee.avatarUrl}
+									alt=""
+									loading="lazy"
+									class="relative h-full w-full object-cover"
+									onerror={hideBrokenAvatar}
+								/>
+							</span>
 							<span>@{assignee.login}</span>
 						</span>
 					{/each}
@@ -116,17 +150,52 @@
 			</dd>
 		</div>
 		<div class="flex gap-2">
-			<dt class="w-20 shrink-0 text-neutral-500">milestone</dt>
-			<dd class="min-w-0 text-neutral-900">{issue.milestone ? issue.milestone.title : '—'}</dd>
+			<dt
+				class="w-20 shrink-0 font-mono text-[9px] leading-4 tracking-[0.08em] text-quiet uppercase"
+			>
+				milestone
+			</dt>
+			<dd class="min-w-0 text-muted">
+				{#if issue.milestone}
+					<span class="inline-flex items-center gap-1.5">
+						<svg
+							class="h-[11px] w-[11px] shrink-0 text-brand"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+							<line x1="4" x2="4" y1="22" y2="15" />
+						</svg>
+						{issue.milestone.title}
+					</span>
+				{:else}
+					—
+				{/if}
+			</dd>
 		</div>
 		<div class="flex gap-2">
-			<dt class="w-20 shrink-0 text-neutral-500">labels</dt>
+			<dt
+				class="w-20 shrink-0 font-mono text-[9px] leading-4 tracking-[0.08em] text-quiet uppercase"
+			>
+				labels
+			</dt>
 			<dd class="flex min-w-0 flex-wrap gap-1">
 				{#if issue.labels.length === 0}
-					<span class="text-neutral-500">—</span>
+					<span class="text-quiet">—</span>
 				{:else}
 					{#each issue.labels as label (label.name)}
-						<span class="border border-neutral-300 px-1 text-[10px] text-neutral-600">
+						<span
+							class="inline-flex h-[19px] items-center gap-1 rounded-[5px] border border-chip-line bg-chip px-1.5 text-[10.5px] leading-none font-medium text-muted"
+							style={labelStyle(label.color)}
+							title={label.name}
+						>
+							<span class="label-dot h-[5px] w-[5px] shrink-0 rounded-full" aria-hidden="true"
+							></span>
 							{label.name}
 						</span>
 					{/each}
@@ -134,23 +203,30 @@
 			</dd>
 		</div>
 		<div class="flex gap-2">
-			<dt class="w-20 shrink-0 text-neutral-500">activity</dt>
-			<dd class="min-w-0 text-neutral-900">
-				reactions {issue.reactions ? issue.reactions.total : '?'} · comments {issue.comments}
+			<dt
+				class="w-20 shrink-0 font-mono text-[9px] leading-4 tracking-[0.08em] text-quiet uppercase"
+			>
+				activity
+			</dt>
+			<dd class="min-w-0 font-mono text-[10px] leading-4 text-quiet">
+				reactions <span class="text-muted">{issue.reactions ? issue.reactions.total : '?'}</span>
+				· comments <span class="text-muted">{issue.comments}</span>
 			</dd>
 		</div>
 	</dl>
 
-	<section class="flex flex-col gap-1 text-xs">
-		<h2 class="text-[11px] font-bold tracking-wide text-neutral-500 uppercase">blocked by:</h2>
+	<section class="flex flex-col gap-1.5 text-[11.5px]">
+		<h2 class="font-mono text-[9px] font-medium tracking-[0.1em] text-quiet uppercase">
+			blocked by
+		</h2>
 		{#if blockedBy.length === 0}
-			<p class="text-neutral-500">—</p>
+			<p class="text-quiet">—</p>
 		{:else}
 			{#each blockedBy as row (row.number)}
 				<div class="flex items-center gap-2">
 					{#if row.href}
 						<a
-							class="text-neutral-900 underline"
+							class="text-muted decoration-warm underline-offset-2 hover:text-brand hover:underline"
 							href={row.href}
 							target="_blank"
 							rel="external noreferrer"
@@ -158,23 +234,23 @@
 							{row.label}
 						</a>
 					{:else}
-						<span class="text-neutral-500">{row.label}</span>
+						<span class="text-quiet">{row.label}</span>
 					{/if}
 				</div>
 			{/each}
 		{/if}
 	</section>
 
-	<section class="flex flex-col gap-1 text-xs">
-		<h2 class="text-[11px] font-bold tracking-wide text-neutral-500 uppercase">blocks:</h2>
+	<section class="flex flex-col gap-1.5 text-[11.5px]">
+		<h2 class="font-mono text-[9px] font-medium tracking-[0.1em] text-quiet uppercase">blocks</h2>
 		{#if blocks.length === 0}
-			<p class="text-neutral-500">—</p>
+			<p class="text-quiet">—</p>
 		{:else}
 			{#each blocks as row (row.number)}
 				<div class="flex items-center gap-2">
 					{#if row.href}
 						<a
-							class="text-neutral-900 underline"
+							class="text-muted decoration-warm underline-offset-2 hover:text-brand hover:underline"
 							href={row.href}
 							target="_blank"
 							rel="external noreferrer"
@@ -182,59 +258,93 @@
 							{row.label}
 						</a>
 					{:else}
-						<span class="text-neutral-500">{row.label}</span>
+						<span class="text-quiet">{row.label}</span>
 					{/if}
 				</div>
 			{/each}
 		{/if}
 	</section>
 
-	<section class="flex flex-col gap-1 text-xs">
-		<h2 class="text-[11px] font-bold tracking-wide text-neutral-500 uppercase">linked PRs:</h2>
+	<section class="flex flex-col gap-1.5">
+		<h2 class="font-mono text-[9px] font-medium tracking-[0.1em] text-quiet uppercase">
+			linked PRs
+		</h2>
 		{#if issue.linkedPRs.length === 0}
-			<p class="text-neutral-500">—</p>
+			<p class="text-[11.5px] text-quiet">—</p>
 		{:else}
 			{#each issue.linkedPRs as pr (pr.number)}
-				<div class="flex flex-wrap items-center gap-2">
+				<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
 					<a
-						class="text-neutral-900 underline"
+						class="inline-flex items-center gap-1.5 text-[11.5px] text-muted hover:text-brand"
 						href={pr.url}
 						target="_blank"
 						rel="external noreferrer"
 					>
-						{prStatus(pr)} PR #{pr.number}
+						<span class="h-1.5 w-1.5 rounded-full {prDotClass(pr)}" aria-hidden="true"></span>
+						<span class="font-mono text-[9px] font-medium tracking-[0.06em] uppercase">
+							{prStatus(pr)}
+						</span>
+						<span class="font-mono text-[10px] tabular-nums">PR #{pr.number}</span>
 					</a>
 					{#if pr.author}
-						<span class="text-neutral-500">by @{pr.author}</span>
+						<span class="text-[10.5px] text-quiet">by @{pr.author}</span>
 					{/if}
 					{#if pr.crossRepository}
-						<span class="text-neutral-500">(cross-repo)</span>
+						<span class="font-mono text-[9px] tracking-[0.04em] text-quiet uppercase">
+							cross-repo
+						</span>
 					{/if}
 					{#if pr.mergeStateUnknown}
-						<span class="text-neutral-500">(merge state unknown)</span>
+						<span class="font-mono text-[9px] tracking-[0.04em] text-quiet uppercase">
+							merge state unknown
+						</span>
 					{/if}
 				</div>
 			{/each}
 		{/if}
 	</section>
 
-	<section class="flex flex-col gap-1">
-		<h2 class="text-[11px] font-bold tracking-wide text-neutral-500 uppercase">description</h2>
+	<section class="flex flex-col gap-1.5">
+		<h2 class="font-mono text-[9px] font-medium tracking-[0.1em] text-quiet uppercase">
+			description
+		</h2>
 		{#if issue.body.trim()}
-			<p class="max-h-64 overflow-auto text-xs whitespace-pre-wrap text-neutral-700">
+			<p
+				class="max-h-64 overflow-auto text-[11.5px] leading-relaxed whitespace-pre-wrap text-muted"
+			>
 				{issue.body}
 			</p>
 		{:else}
-			<p class="text-xs text-neutral-500">No description.</p>
+			<p class="text-[11.5px] text-quiet">No description.</p>
 		{/if}
 	</section>
 
 	<a
-		class="text-xs text-neutral-500 underline"
+		class="inline-flex items-center gap-1 text-[11px] font-medium text-brand-strong hover:underline"
 		href={issue.url}
 		target="_blank"
 		rel="external noreferrer"
 	>
 		Open on GitHub
+		<svg
+			class="h-3 w-3"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<path d="M7 17 17 7" />
+			<path d="M7 7h10v10" />
+		</svg>
 	</a>
 </div>
+
+<style>
+	.label-dot {
+		background: color-mix(in srgb, var(--label-color) 72%, var(--color-ink));
+		box-shadow: 0 0 0 1px rgb(16 16 16 / 0.06);
+	}
+</style>
