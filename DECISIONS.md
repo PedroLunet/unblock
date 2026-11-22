@@ -165,6 +165,48 @@ Step 1" can be overridden — flag it in review.
 - **Not in this pass**: colours, typography, card content and chrome remain the
   pre-clone placeholder. No visual-language decisions are being made here.
 
+## Issue-card visual language (design pass)
+
+- **Docker-inspired system**: warm Canvas `#F5F2EE` behind paper `#FFFDFA`
+  cards, Ink `#1D1D1D` text, Base Blue `#6172FF` for assigned cards and primary
+  actions, Trigger Red `#FF3D40` for blocked accents, and warm neutral lines
+  (`#DDD4C9`/`#E7DFD5`). Tokens live in `src/routes/layout.css` as Tailwind
+  `@theme` colors.
+- **State is the border, and open is implicit**: unassigned and closed cards use
+  the warm neutral border, assigned cards use Base Blue, blocked cards use red.
+  Blocking takes precedence over assignment; the assignee is still shown next to
+  the blocked badge. Open issues carry no state label at all; closed cards show
+  a quiet mono `CLOSED` label. This avoids a green “OPEN” marker on every card.
+- **Card width is 272px** (up from the 240px placeholder). Heights are still
+  estimated before layout, but the geometry now lives in
+  `src/lib/board/card-metrics.ts`, shared by the ELK layout and
+  `IssueCard.svelte` so the two cannot drift apart.
+- **Every previous data point remains**: number, state (open is implicit; closed
+  is labelled), assignee stack or `Unassigned`, title (up to three lines), two
+  labels plus overflow, milestone, reactions, updated age, open-blocker
+  ratio/count, resolved-blocker count, and two linked PRs plus overflow.
+- **Dependency edges stay neutral**: every issue→issue edge uses one warm gray
+  and arrowhead; selecting a card darkens its edges instead of turning them red.
+  Red is reserved for the blocked card state, so the graph doesn't compete with
+  the cards for attention.
+- **Chips are monochrome with colour dots**: labels use the real GitHub label
+  colour as a 5px dot inside a warm neutral chip; linked PRs reuse the same chip
+  shape with a semantic status dot and mono status/number. This keeps label and
+  PR identity without filling the card with competing pastel pills.
+- **Blocked badge**: a squared, icon-led technical badge — prohibition glyph,
+  mono `BLOCKED` label, and a solid red count capsule (`2` or `2/3`) — rather
+  than a generic rounded pill.
+- **Pattern Language**: 16px card corners, 2px state borders, 5–6px technical
+  chips, quiet shadows, a subtle hover lift (fine pointers only), and a
+  press-scale. Frames are soft warm containers with a blue marker and mono
+  labels. Motion is limited to 160ms transform/shadow transitions and is
+  disabled under `prefers-reduced-motion`.
+- **Typography**: DM Sans (Docker's approved fallback for GT Planar) and DM Mono
+  (GT Standard Mono fallback), self-hosted via Fontsource. Titles are
+  15px/19px semibold; issue/PR numbers, state labels, and technical metadata use
+  DM Mono. The warm system also covers the board header, frames, drawer, and
+  entry screen.
+
 ## GitHub sign-in (replaces the optional PAT)
 
 - **OAuth App, not GitHub App**: the app needs a user-scoped token and a single
