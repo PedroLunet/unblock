@@ -9,7 +9,9 @@
 	import type { BoardModel, BoardNode } from '#lib/board/graph.ts';
 	import BoardCanvas from '#lib/board/BoardCanvas.svelte';
 	import IssueDrawer from '#lib/board/IssueDrawer.svelte';
-	import { GithubError, loadPat, loadRepo } from '#lib/github';
+	import AuthControls from '#lib/auth/AuthControls.svelte';
+	import { session } from '#lib/auth/session.svelte.ts';
+	import { GithubError, loadRepo } from '#lib/github';
 	import type { FetchScope, RepoData } from '#lib/github';
 
 	interface PageParams {
@@ -48,6 +50,7 @@
 	});
 
 	let options = $derived(data ? filterOptions(data) : { milestones: [], assignees: [] });
+	let authNext = $derived(page.url.pathname + page.url.search);
 
 	let loadId = 0;
 	let rebuildId = 0;
@@ -63,8 +66,9 @@
 		progress = 'Loading repository…';
 		error = null;
 		try {
+			await session.ensure();
 			const result = await loadRepo(owner, repo, {
-				token: loadPat(),
+				auth: session.user ? 'github' : 'anonymous',
 				scope: targetScope,
 				refresh: false,
 				progress: (message) => {
@@ -77,6 +81,7 @@
 		} catch (err) {
 			if (id !== loadId) return;
 			if (err instanceof GithubError) {
+				if (err.kind === 'auth') void session.refresh();
 				error = err.message;
 			} else {
 				console.error(err);
@@ -102,6 +107,12 @@
 
 	function handleIssueClick(issueNumber: number): void {
 		selectedNumber = issueNumber;
+	}
+
+	async function handleSignOut(): Promise<void> {
+		data = null;
+		selectedNumber = null;
+		await load(scope);
 	}
 </script>
 
@@ -184,6 +195,10 @@
 				{counts.issues} issues · {counts.edges} edges · {counts.chains} chains
 			</span>
 		{/if}
+
+		<div class="ml-auto">
+			<AuthControls next={authNext} showPrivateChoice onsignout={handleSignOut} />
+		</div>
 	</header>
 
 	{#if data && data.meta.warnings.length > 0}

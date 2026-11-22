@@ -69,19 +69,15 @@ async function gh<T>(ctx: RestCtx, path: string, opts: GhOptions = {}): Promise<
 		throw new GithubError('not-found', `GitHub says ${path} does not exist.`, 404);
 	}
 	if (res.status === 401) {
-		throw new GithubError(
-			'auth',
-			'GitHub rejected the request. Check that your PAT is valid.',
-			401
-		);
+		throw new GithubError('auth', 'GitHub rejected the request. Sign in again and retry.', 401);
 	}
 	if (res.status === 403 || res.status === 429) {
 		if (ctx.rate && ctx.rate.remaining === 0) {
 			throw new GithubError(
 				'rate-limit',
-				`GitHub rate limit exhausted (60 req/hr unauthenticated). Resets ${
+				`GitHub rate limit exhausted (60 req/hr anonymous). Resets ${
 					ctx.rate.resetAt ? new Date(ctx.rate.resetAt).toLocaleTimeString() : 'within the hour'
-				}. Add a PAT for 5,000 req/hr.`,
+				}. Sign in with GitHub for 5,000 req/hr.`,
 				403
 			);
 		}
@@ -326,7 +322,7 @@ export async function loadRepoViaRest(
 		if (err instanceof GithubError && err.kind === 'not-found') {
 			throw new GithubError(
 				'not-found',
-				`Repository ${owner}/${repo} not found. If it is private, add a PAT with read access.`
+				`Repository ${owner}/${repo} not found. If it is private, sign in with GitHub and allow private repository access.`
 			);
 		}
 		throw err;
@@ -342,7 +338,7 @@ export async function loadRepoViaRest(
 			`GitHub rate limit nearly exhausted (${ctx.rate.remaining}/${ctx.rate.limit} left).` +
 				` Resets ${
 					ctx.rate.resetAt ? new Date(ctx.rate.resetAt).toLocaleTimeString() : 'within the hour'
-				}. Add a PAT for 5,000 req/hr.`,
+				}. Sign in with GitHub for 5,000 req/hr.`,
 			403
 		);
 	}
@@ -393,7 +389,9 @@ export async function loadRepoViaRest(
 	const extraIssues = new Map<number, IssueRecord>();
 	let nativeRelationships: NativeRelationships = 'skipped';
 	if (outOfBudget(ctx)) {
-		ctx.warnings.push('Rate budget too low to check GitHub-native relationships (add a PAT).');
+		ctx.warnings.push(
+			'Rate budget too low to check GitHub-native relationships (sign in with GitHub for full data).'
+		);
 	} else {
 		try {
 			ctx.progress?.('Checking native issue relationships…');
@@ -413,7 +411,7 @@ export async function loadRepoViaRest(
 			if (blockedItems.length > MAX_NATIVE_DEP_CALLS) {
 				ctx.warnings.push(
 					`${blockedItems.length} issues have native "blocked by" relationships; only the first ` +
-						`${MAX_NATIVE_DEP_CALLS} were enumerated (add a PAT for full data).`
+						`${MAX_NATIVE_DEP_CALLS} were enumerated (sign in with GitHub for full data).`
 				);
 			}
 			let exhausted = false;
@@ -448,13 +446,13 @@ export async function loadRepoViaRest(
 			nativeRelationships = exhausted ? 'skipped' : 'used';
 			if (exhausted) {
 				ctx.warnings.push(
-					'Stopped enumerating native relationships (rate budget; add a PAT for complete data).'
+					'Stopped enumerating native relationships (rate budget; sign in with GitHub for complete data).'
 				);
 			}
 		} catch (err) {
 			if (err instanceof GithubError && err.kind === 'rate-limit') {
 				ctx.warnings.push(
-					'Skipped native issue relationships (rate limit). Add a PAT for complete data.'
+					'Skipped native issue relationships (rate limit). Sign in with GitHub for complete data.'
 				);
 			} else {
 				ctx.warnings.push('Could not read GitHub-native relationships; using text parsing only.');
@@ -497,7 +495,7 @@ export async function loadRepoViaRest(
 	if (unscanned > 0 && timelineBudget > 0) {
 		ctx.warnings.push(
 			`Linked-PR data for ${unscanned} issues relies on open-PR bodies only ` +
-				`(anonymous rate budget). Add a PAT for complete data.`
+				`(anonymous rate budget). Sign in with GitHub for complete data.`
 		);
 	}
 
@@ -510,7 +508,7 @@ export async function loadRepoViaRest(
 		const capped = numbers.slice(0, MAX_REF_LOOKUPS);
 		if (numbers.length > MAX_REF_LOOKUPS) {
 			ctx.warnings.push(
-				`Referenced issue lookups capped at ${MAX_REF_LOOKUPS} (add a PAT for the rest).`
+				`Referenced issue lookups capped at ${MAX_REF_LOOKUPS} (sign in with GitHub for the rest).`
 			);
 		}
 		for (const n of capped) {

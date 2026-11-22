@@ -2,6 +2,7 @@ import { loadRepoViaGraphQL } from './graphql';
 import { loadRepoViaRest } from './rest';
 import { readRepoCache, repoCacheKey, writeRepoCache } from './storage';
 import type {
+	AuthMode,
 	DepEdge,
 	DependencyRef,
 	FetchScope,
@@ -17,11 +18,11 @@ export { GithubError } from './errors';
 export type { GithubErrorKind } from './errors';
 export { parseRepoInput } from './input';
 export type { RepoTarget } from './input';
-export { clearPat, loadPat, maskPat, savePat } from './storage';
+export { clearLegacyPat } from './storage';
 
 export interface LoadRepoOptions {
-	/** Optional read-only GitHub PAT (stored in localStorage by the caller). */
-	token: string | null;
+	/** Signed-in requests use GraphQL via the server proxy; anonymous uses REST. */
+	auth: AuthMode;
 	scope: FetchScope;
 	/** Skip the 5-minute cache and force a refetch. */
 	refresh?: boolean;
@@ -45,7 +46,7 @@ const EDGE_PRIORITY: Record<DependencyRef['source'], number> = {
 
 /**
  * Load a repository's issues, dependency edges and linked PRs.
- * Uses GraphQL when a PAT is provided, capped anonymous REST otherwise.
+ * Signed-in users get GraphQL via the server proxy; anonymous uses capped REST.
  * Results are cached in localStorage for 5 minutes (bypass with `refresh`).
  */
 export async function loadRepo(
@@ -53,7 +54,7 @@ export async function loadRepo(
 	repo: string,
 	options: LoadRepoOptions
 ): Promise<RepoData> {
-	const key = repoCacheKey(owner, repo, options.scope, options.token !== null);
+	const key = repoCacheKey(owner, repo, options.scope, options.auth);
 	if (!options.refresh) {
 		const cached = readRepoCache(key);
 		if (cached) return cached;
@@ -61,9 +62,10 @@ export async function loadRepo(
 
 	const started = Date.now();
 	const loaderOptions = { scope: options.scope, progress: options.progress };
-	const loader = options.token
-		? await loadRepoViaGraphQL(owner, repo, options.token, loaderOptions)
-		: await loadRepoViaRest(owner, repo, loaderOptions);
+	const loader =
+		options.auth === 'github'
+			? await loadRepoViaGraphQL(owner, repo, loaderOptions)
+			: await loadRepoViaRest(owner, repo, loaderOptions);
 
 	const issues = loader.issues;
 	const extraIssues: IssueRecord[] = [];
@@ -162,7 +164,7 @@ export async function loadRepo(
 		meta: {
 			nameWithOwner: loader.nameWithOwner,
 			scope: options.scope,
-			source: options.token ? 'graphql' : 'rest',
+			source: options.auth === 'github' ? 'graphql' : 'rest',
 			requestCount: snap.requestCount,
 			rateLimit: snap.rate,
 			totalIssues: loader.totalIssues,

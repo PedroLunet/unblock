@@ -1,21 +1,13 @@
 <script lang="ts">
-	import {
-		clearPat,
-		GithubError,
-		loadPat,
-		loadRepo,
-		maskPat,
-		parseRepoInput,
-		resolveRef,
-		savePat
-	} from '#lib/github';
+	import { page } from '$app/state';
+	import AuthControls from '#lib/auth/AuthControls.svelte';
+	import { session } from '#lib/auth/session.svelte.ts';
+	import { GithubError, loadRepo, parseRepoInput, resolveRef } from '#lib/github';
 	import type { DependencyRef, FetchScope, LinkedPR, RepoData, RepoTarget } from '#lib/github';
 
 	const RENDER_CAP = 200;
 
 	let repoInput = $state('');
-	let patInput = $state('');
-	let storedPat = $state<string | null>(null);
 	let scope = $state<FetchScope>('open');
 	let data = $state<RepoData | null>(null);
 	let loading = $state(false);
@@ -25,32 +17,13 @@
 	let trimmedRepoInput = $derived(repoInput.trim());
 	let parsedInput = $derived(trimmedRepoInput === '' ? null : parseRepoInput(trimmedRepoInput));
 	let inputError = $derived(trimmedRepoInput !== '' && parsedInput === null);
+	let authNext = $derived(page.url.pathname + page.url.search);
 	let loadTarget = $derived.by(() => {
 		if (parsedInput) return parsedInput;
 		if (trimmedRepoInput === '' && data) return { owner: data.owner, repo: data.repo };
 		return null;
 	});
 	let canLoad = $derived(!loading && loadTarget !== null);
-
-	// PAT initialization happens in the browser only ($effect never runs during SSR).
-	// The stored token lives in `storedPat` and is never echoed back into the input.
-	function refreshStoredPat(): void {
-		storedPat = loadPat();
-	}
-
-	$effect(refreshStoredPat);
-
-	function savePatFromInput(): void {
-		savePat(patInput);
-		patInput = '';
-		refreshStoredPat();
-	}
-
-	function clearStoredPat(): void {
-		clearPat();
-		patInput = '';
-		refreshStoredPat();
-	}
 
 	function setScope(next: FetchScope): void {
 		if (loading || scope === next) return;
@@ -84,8 +57,9 @@
 		loadErrorMessage = null;
 		progressMessage = '';
 		try {
+			await session.ensure();
 			data = await loadRepo(target.owner, target.repo, {
-				token: storedPat,
+				auth: session.user ? 'github' : 'anonymous',
 				scope: targetScope,
 				refresh: options?.refresh === true,
 				progress: (message) => {
@@ -94,6 +68,7 @@
 			});
 		} catch (err) {
 			if (err instanceof GithubError) {
+				if (err.kind === 'auth') void session.refresh();
 				loadErrorMessage = err.message;
 			} else {
 				console.error(err);
@@ -190,37 +165,16 @@
 		</div>
 
 		<div class="flex flex-col gap-1">
-			<div class="flex flex-wrap items-center gap-2">
-				<input
-					type="password"
-					class="min-w-64 flex-1 rounded border border-neutral-300 px-2 py-1.5 text-sm"
-					placeholder="optional: GitHub PAT (read-only, stored locally)"
-					bind:value={patInput}
-				/>
-				<button
-					type="button"
-					class="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-900"
-					onclick={savePatFromInput}
-				>
-					Save PAT
-				</button>
-				{#if storedPat}
-					<span
-						class="rounded border border-neutral-300 bg-neutral-100 px-2 py-1 text-xs text-neutral-700"
-					>
-						PAT saved ({maskPat(storedPat)})
-					</span>
-					<button
-						type="button"
-						class="rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"
-						onclick={clearStoredPat}
-					>
-						Clear
-					</button>
-				{/if}
-			</div>
+			<AuthControls
+				next={authNext}
+				showPrivateChoice
+				onsignout={() => {
+					data = null;
+					loadErrorMessage = null;
+				}}
+			/>
 			<p class="text-xs text-neutral-500">
-				Stored only in your browser's localStorage. Sent only to api.github.com.
+				Sign in for private repositories, 5,000 requests/hour, and complete dependency data.
 			</p>
 		</div>
 

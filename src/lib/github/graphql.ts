@@ -1,3 +1,4 @@
+import { resolve } from '$app/paths';
 import { GithubError } from './errors';
 import type {
 	LinkedPR,
@@ -9,13 +10,12 @@ import type {
 	ResolvedExternals
 } from './types';
 
-const GITHUB_GRAPHQL = 'https://api.github.com/graphql';
+const GITHUB_GRAPHQL_PROXY = resolve('/api/github/graphql');
 const MAX_PAGES = 5; // 500 issues
 const EXTERNAL_CHUNK = 50;
 const MAX_EXTERNAL_CHUNKS = 3;
 
 interface GqlCtx {
-	token: string;
 	requestCount: number;
 	warnings: string[];
 	progress?: (message: string) => void;
@@ -40,21 +40,21 @@ async function gql<T>(
 	ctx.requestCount++;
 	let res: Response;
 	try {
-		res = await fetch(GITHUB_GRAPHQL, {
+		res = await fetch(GITHUB_GRAPHQL_PROXY, {
 			method: 'POST',
+			credentials: 'same-origin',
 			headers: {
-				Authorization: `Bearer ${ctx.token}`,
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({ query, variables })
 		});
 	} catch (err) {
-		throw new GithubError('network', `Could not reach api.github.com: ${(err as Error).message}`);
+		throw new GithubError('network', `Could not reach GitHub: ${(err as Error).message}`);
 	}
 	if (res.status === 401) {
 		throw new GithubError(
 			'auth',
-			'GitHub rejected the PAT. Check that it is valid and not expired.',
+			'Your GitHub session has expired. Sign in again to continue.',
 			401
 		);
 	}
@@ -295,11 +295,9 @@ function mapGqlIssue(node: GqlIssue, inScope: boolean, owner: string, repo: stri
 export async function loadRepoViaGraphQL(
 	owner: string,
 	repo: string,
-	token: string,
 	opts: LoaderOptions
 ): Promise<LoaderResult> {
 	const ctx: GqlCtx = {
-		token,
 		requestCount: 0,
 		warnings: [],
 		progress: opts.progress,
@@ -320,7 +318,7 @@ export async function loadRepoViaGraphQL(
 		if (!data.repository) {
 			throw new GithubError(
 				'not-found',
-				`Repository ${owner}/${repo} not found (or the PAT cannot see it).`,
+				`Repository ${owner}/${repo} not found, or your GitHub account cannot see it.`,
 				404
 			);
 		}

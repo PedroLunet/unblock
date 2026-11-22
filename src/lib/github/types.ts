@@ -2,6 +2,9 @@
 
 export type FetchScope = 'open' | 'all';
 
+/** `github` means the user signed in; `anonymous` uses the capped public REST API. */
+export type AuthMode = 'anonymous' | 'github';
+
 export type IssueState = 'open' | 'closed';
 
 /** PR state as we display it: "merged" is surfaced separately from closed-unmerged. */

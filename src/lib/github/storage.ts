@@ -1,6 +1,6 @@
-import type { RepoData } from './types';
+import type { AuthMode, RepoData } from './types';
 
-const PAT_KEY = 'unblock:pat';
+const LEGACY_PAT_KEY = 'unblock:pat';
 const CACHE_PREFIX = 'unblock:repo:v2';
 const TTL_MS = 5 * 60 * 1000;
 
@@ -8,35 +8,16 @@ function available(): boolean {
 	return typeof localStorage !== 'undefined';
 }
 
-/** --- optional GitHub PAT, stored strictly in this browser --- */
-
-export function loadPat(): string | null {
-	if (!available()) return null;
-	return localStorage.getItem(PAT_KEY) || null;
-}
-
-export function savePat(pat: string): void {
+/** Remove the PAT that older versions kept in localStorage. */
+export function clearLegacyPat(): void {
 	if (!available()) return;
-	const trimmed = pat.trim();
-	if (trimmed) localStorage.setItem(PAT_KEY, trimmed);
-	else localStorage.removeItem(PAT_KEY);
-}
-
-export function clearPat(): void {
-	if (!available()) return;
-	localStorage.removeItem(PAT_KEY);
-}
-
-/** Mask a token for display: keep enough to recognize, never the full value. */
-export function maskPat(pat: string): string {
-	if (pat.length <= 8) return `${pat.slice(0, 2)}••••`;
-	return `${pat.slice(0, 4)}••••••${pat.slice(-4)}`;
+	localStorage.removeItem(LEGACY_PAT_KEY);
 }
 
 /** --- raw repo data cache (5-minute TTL, bypassed by `refresh`) --- */
 
-export function repoCacheKey(owner: string, repo: string, scope: string, hasPat: boolean): string {
-	return `${owner.toLowerCase()}/${repo.toLowerCase()}|${scope}|${hasPat ? 'pat' : 'anon'}`;
+export function repoCacheKey(owner: string, repo: string, scope: string, auth: AuthMode): string {
+	return `${owner.toLowerCase()}/${repo.toLowerCase()}|${scope}|${auth}`;
 }
 
 export function readRepoCache(key: string): RepoData | null {
@@ -72,4 +53,15 @@ export function writeRepoCache(key: string, data: RepoData): boolean {
 		}
 		return false;
 	}
+}
+
+/** Drop every cached repository (used on sign-out so private data isn't left behind). */
+export function clearRepoCache(): void {
+	if (!available()) return;
+	const keys: string[] = [];
+	for (let i = 0; i < localStorage.length; i++) {
+		const key = localStorage.key(i);
+		if (key && key.startsWith('unblock:repo:')) keys.push(key);
+	}
+	for (const key of keys) localStorage.removeItem(key);
 }
