@@ -110,7 +110,8 @@ Step 1" can be overridden — flag it in review.
   `Independent · N issues` frame.
 - **Layout**: one ELK pass for all chains, packed to a landscape component
   aspect; independent issues packed shortest-column with adaptive columns.
-  Frames are parent nodes for packed geometry; the canvas is read-only. Card
+  ELK owns edge endpoints and routing (no fixed ports, no post-processing);
+  frames are parent nodes for packed geometry; the canvas is read-only. Card
   geometry remains the pre-clone 240 × 132–210 layout.
 - **Board route is client-only** (`ssr = false`): the PAT lives in
   localStorage and all fetching is browser-side.
@@ -134,62 +135,31 @@ Step 1" can be overridden — flag it in review.
 
 ## Step 2 layout organization (latest pass)
 
-- **One ELK pass, landscape packing**: every dependency chain goes into a single
-  ELK graph (`layered`, DOWN, `ORTHOGONAL`, `NETWORK_SIMPLEX`, `LAYER_SWEEP`,
-  spacing 20/56/12/10/12/10, `separateConnectedComponents`, component spacing
-  64, `aspectRatio 1.9`), so components pack against each other instead of being
-  stacked in source order. Loose issues use shortest-column packing with an
-  adaptive column count targeting a final canvas aspect of ~1.4; the narrower
-  of the chain cluster and the loose block is centered against the wider one.
-  Chain frames are drawn after layout and wrap the placed cards.
-- **Top-aligned rows**: ELK centres cards of different heights within a row,
-  which reads as a ragged layer. Cards are grouped by ELK's vertical centre
-  (10px tolerance) and each group is top-aligned. Grouping by the row ELK
-  actually placed a card in — rather than longest-path depth — keeps direct
-  children with an extra blocker on the same visual row.
-- **Distributed ports on both sides**: a card with one outgoing edge keeps the
-  bottom-centre exit; several outgoing edges get one bottom port each, spread
-  evenly and ordered left-to-right by the target's x. A card with one incoming
-  edge keeps the top-centre entry; several incoming edges get one top port each,
-  ordered by the source's x. Target ports are applied at render time, not inside
-  ELK, so the layout is unchanged. Each incoming edge gets its own horizontal
-  lane just above the target row, offset 10px per edge on the same row, and
-  renders an L-approach (source bottom -> lane -> target top). No arrows join at
-  a shared target point and no two fan-in edges share a segment.
-- **Orthogonality snapping**: ELK sometimes emits a 1px drift on a segment meant
-  to be axis-aligned; near-axis segments are snapped before repair. The crossing
-  repair (`avoidCards`) then cannot skip a segment by mistaking it for a
-  diagonal.
-- **Read-only canvas**: `nodesDraggable={false}`. Moving a card would invalidate
-  ELK's already-reserved routes and the zero edge/card guarantee; dynamic
-  rerouting on drag was deliberately deferred. Pan, zoom and selection still
+- **Reference routing (issues-graph model)**: no fixed ports. Every chain goes
+  into one ELK graph (`layered`, DOWN, `ORTHOGONAL`, `NETWORK_SIMPLEX`,
+  `LAYER_SWEEP`, spacing 28/76/20/16, `separateConnectedComponents`, component
+  spacing 76, `aspectRatio 1.9`). ELK chooses each edge's border endpoints and
+  reserves lanes; the edge component draws the resulting polyline with 7px
+  rounded corners. There is no post-layout node movement, port distribution,
+  target-lane pass or custom edge repair.
+- **Cards and frames**: cards are the pre-clone 240 × 132–210 placeholder;
+  chain and independent frames wrap node bounds after layout. Independent
+  issues use shortest-column packing with adaptive columns; the narrower of the
+  chain cluster and the loose block is centered against the wider one.
+- **Read-only canvas**: `nodesDraggable={false}`. Pan, zoom and selection still
   work; Auto-Layout refits.
-- **Edge geometry guarantee**: source ports are bottom-centre for a single edge
-  and distributed along the bottom edge for a fan-out; target ports are
-  top-centre for a single edge and distributed along the top edge for a fan-in.
-  Headless tests check zero edge/card intersections, bottom-edge/top-edge
-  anchors, distinct fan-in and fan-out ports, no shared edge segments, rounded
-  paths, frame overlap and title overflow. A drag attempt leaves node positions
-  and edge paths unchanged.
 - **Rebuild correctness**: the canvas is keyed by a reactive `layoutRevision`
-  wrapping the whole `SvelteFlowProvider`. The provider's store survives a normal
-  remount, and previously retained stale edge points after a rebuild; keying the
-  provider gives every rebuild a fresh store, so nodes and edges always belong to
-  the same layout.
-- **Edge-edge crossings**: minimized, not guaranteed. On the 117-issue tts
-  graph there is exactly one: `866→874` crosses `872→875` because the sources
-  are ordered `866 < 872` while the targets are ordered `874 > 875`. Removing it
-  requires reordering that row or a long detour, and either can create a
-  different crossing. Distributing target ports inside ELK was tried and
-  reverted (it destabilised component packing/frames); the ports are now applied
-  at render time with a validated approach lane, which removes the joining and
-  all shared segments without changing the layout. This one crossing remains;
-  edge/card crossings are zero.
-- **Layout benchmark**: on the 117-issue tts graph, `NETWORK_SIMPLEX` vs
-  `BRANDES_KOEPF` and higher thoroughness were identical; `INTERACTIVE` produced
-  31 edge-edge crossings and 2.3× the edge length; wrapping and post-compaction
-  were larger. Tight spacing won: total edge length 7615 → 6671 (−12.4%), canvas
-  area 8.15M → 7.83M (−3.9%), same one edge-edge crossing, zero edge/card
-  crossings and no frame overlap.
-- **Not in this pass**: colours, typography, card content and chrome are the
+  wrapping the whole `SvelteFlowProvider`, so every rebuild gets a fresh flow
+  store instead of retaining old edge geometry.
+- **Verified on the 117-issue tts graph**: 28 edges, **0 edge/card crossings**,
+  **0 edge–edge crossings**, **0 shared segments** (all pairs, including
+  fan-in/fan-out), endpoints on card borders, no frame overlap and no clipped
+  titles; final aspect 1.44. Reference spacing uses more canvas area than the
+  earlier tight layout, but it is the cleanest routing.
+- **Superseded**: fixed bottom-centre/top-centre ports, distributed source and
+  target ports, target approach lanes, L-approaches, top-aligned row
+  post-processing, the `avoidCards` repair and the tight-spacing benchmark.
+  Those were attempts to force the old port model; the reference router is
+  cleaner without them.
+- **Not in this pass**: colours, typography, card content and chrome remain the
   pre-clone placeholder. No visual-language decisions are being made here.

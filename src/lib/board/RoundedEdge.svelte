@@ -1,14 +1,11 @@
 <script lang="ts">
-	import { BaseEdge, useInternalNode } from '@xyflow/svelte';
+	import { BaseEdge } from '@xyflow/svelte';
 	import type { EdgeProps } from '@xyflow/svelte';
 
 	type Pt = { x: number; y: number };
 	const RADIUS = 7;
 
-	let { source, target, data, markerEnd, style }: EdgeProps = $props();
-
-	const sourceNode = useInternalNode(() => ({ id: source }));
-	const targetNode = useInternalNode(() => ({ id: target }));
+	let { data, markerEnd, style }: EdgeProps = $props();
 
 	function roundedPath(rawPoints: Pt[]): string {
 		const points = rawPoints.filter((p, i) => {
@@ -38,46 +35,9 @@
 	}
 
 	const path = $derived.by(() => {
-		const s = sourceNode.current;
-		const t = targetNode.current;
-		const seedData = data as
-			{ points?: Pt[]; sourcePort?: number; targetPort?: number; targetLane?: number } | undefined;
-		const sourcePort = seedData?.sourcePort ?? 0.5;
-		const targetPort = seedData?.targetPort ?? 0.5;
-		const targetLane = seedData?.targetLane ?? 0;
-		const seeded: Pt[] = seedData?.points ?? [];
-		if (!s || !t || seeded.length < 2) return '';
-		const sx = s.internals.positionAbsolute.x + (s.measured.width ?? 0) * sourcePort;
-		const sy = s.internals.positionAbsolute.y + (s.measured.height ?? 0);
-		const tx = t.internals.positionAbsolute.x + (t.measured.width ?? 0) * targetPort;
-		const ty = t.internals.positionAbsolute.y;
-		if (targetPort !== 0.5) {
-			const laneY = ty - 12 - targetLane * 10;
-			return roundedPath([
-				{ x: sx, y: sy },
-				{ x: sx, y: laneY },
-				{ x: tx, y: laneY },
-				{ x: tx, y: ty }
-			]);
-		}
-		const dx = sx - seeded[0].x;
-		const dy = sy - seeded[0].y;
-		const points: Pt[] = seeded.map((p) => ({ x: p.x + dx, y: p.y + dy }));
-		points[0] = { x: sx, y: sy };
-		const last = points[points.length - 1];
-		const penultimate = points[points.length - 2];
-		// ELK routes into the target's NORTH port, so the final leg is vertical:
-		// stretch/shrink it to land on the measured top-center.
-		if (points.length > 2 && Math.abs(penultimate.x - last.x) <= 1) {
-			penultimate.x = tx;
-			last.x = tx;
-			last.y = ty;
-		} else {
-			// Defensive: keep the translated route and append an orthogonal re-anchor.
-			const midY = (last.y + ty) / 2;
-			points.push({ x: last.x, y: midY }, { x: tx, y: midY }, { x: tx, y: ty });
-		}
-		return roundedPath(points);
+		const seeded = (data as { points?: Pt[] } | undefined)?.points ?? [];
+		if (seeded.length < 2) return '';
+		return roundedPath(seeded);
 	});
 </script>
 
