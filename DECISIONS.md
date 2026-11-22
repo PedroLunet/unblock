@@ -9,7 +9,7 @@ Step 1" can be overridden — flag it in review.
 | Topic                          | Decision                                                                                                    |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
 | Repo scale                     | Under 500 issues; full upfront fetch, hard cap at 500 with a visible truncation warning                     |
-| Anonymous linked-PR strategy   | Capped per-issue REST timeline calls (budget-aware) + "add a PAT" hints                                     |
+| Anonymous linked-PR strategy   | Capped per-issue REST timeline calls (budget-aware) + "sign in with GitHub" hints                           |
 | Linked PR definition           | Closing links only: `Closes/Fixes/Resolves #n`, GitHub-native links, manually linked PRs. Mentions excluded |
 | Dependency parsing             | Text keywords + task lists + GitHub-native relationships; same-repo refs only                               |
 | Auto-layout direction (Step 2) | **Top-to-bottom** (blockers above what they block)                                                          |
@@ -66,7 +66,7 @@ Step 1" can be overridden — flag it in review.
    (verified live: ~180 fork PRs were initially misflagged on sveltejs/svelte).
 10. **Rate-limit short-circuit**: anonymous mode checks the quota right after
     the repository-info call and stops with a clean message (reset time +
-    PAT hint) instead of burning the remaining calls one by one. The IP's
+    sign-in hint) instead of burning the remaining calls one by one. The IP's
     60/hr bucket is shared with anything else running locally, so the app
     treats a pre-drained quota as a normal, surfaced condition.
 
@@ -113,11 +113,12 @@ Step 1" can be overridden — flag it in review.
   ELK owns edge endpoints and routing (no fixed ports, no post-processing);
   frames are parent nodes for packed geometry; the canvas is read-only. Card
   geometry remains the pre-clone 240 × 132–210 layout.
-- **Board route is client-only** (`ssr = false`): the PAT lives in
-  localStorage and all fetching is browser-side.
-- **Entry flow**: home page becomes the entry form (URL + PAT + scope) and
-  navigates to `/[owner]/[repo]?scope=open|all`; the Step 1 raw-data view moves
-  to `/debug`.
+- **Board route is client-only** (`ssr = false`): anonymous data is fetched
+  browser-side; signed-in GraphQL goes through the server proxy and the OAuth
+  token stays in an encrypted, HttpOnly cookie.
+- **Entry flow**: home page becomes the entry form (URL + optional GitHub
+  sign-in + scope) and navigates to `/[owner]/[repo]?scope=open|all`; the Step 1
+  raw-data view moves to `/debug`.
 - **Comparison reference**: `niaefeup/tts` (the issues.martonpaulo.com demo) is
   used to sanity-check chain/edge organization against the reference graph.
 
@@ -163,3 +164,27 @@ Step 1" can be overridden — flag it in review.
   cleaner without them.
 - **Not in this pass**: colours, typography, card content and chrome remain the
   pre-clone placeholder. No visual-language decisions are being made here.
+
+## GitHub sign-in (replaces the optional PAT)
+
+- **OAuth App, not GitHub App**: the app needs a user-scoped token and a single
+  authorization step; a GitHub App would add JWT signing, install flows and
+  per-installation tokens for little benefit at this stage.
+- **Sign-in is optional**: anonymous public-repo browsing remains the default.
+  With no OAuth credentials configured, the UI says sign-in is unavailable and
+  the anonymous REST loader still works.
+- **No scopes by default**: public data plus the user's 5,000 req/hr bucket.
+  Private repos are an explicit opt-in that requests GitHub's broad `repo`
+  scope (OAuth Apps have no read-only private scope). The UI states this.
+- **Token never reaches the browser**: the callback stores it in an AES-GCM
+  encrypted, HttpOnly, SameSite=Lax cookie; signed-in GraphQL calls go through
+  a same-origin `/api/github/graphql` proxy. Anonymous REST still goes directly
+  from the browser to `api.github.com`.
+- **No database**: the session is a self-contained encrypted cookie with a
+  30-day lifetime. Signing out clears the cookie and all cached repo data.
+- **Setup**: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `SESSION_SECRET`
+  (documented in `.env.example`). The callback URL is derived from the request
+  origin (`/auth/github/callback`), so dev and production use separate OAuth
+  App callback URLs.
+- **Removed**: the PAT input, `unblock:pat` storage helpers and the legacy
+  localStorage key (cleaned up on first load).
