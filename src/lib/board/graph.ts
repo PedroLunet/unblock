@@ -3,26 +3,12 @@ import { MarkerType } from '@xyflow/svelte';
 import type { Edge, Node } from '@xyflow/svelte';
 import { resolveRef } from '#lib/github';
 import type { DepEdge, IssueRecord, RepoData } from '#lib/github';
+import { CARD_WIDTH, cardRows, estimateCardHeight } from './card-metrics';
+import { FRAME_HEADER_HEIGHT } from './frame-metrics';
 
-/** Fixed card width — node CSS must match. Heights are estimated per card (see estimateCardHeight). */
-export const CARD_WIDTH = 240;
-
-const FRAME_HEADER = 30;
 const FRAME_PAD = 20;
 const BLOCK_GAP = 72;
 const INDEP_GAP = 24;
-
-/** Card geometry constants shared with IssueNode.svelte — keep in sync. */
-const CARD_PAD = 20;
-const ROW_GAP = 4;
-const HEADER_H = 18;
-const LABELS_H = 18;
-const MILESTONE_H = 15;
-const HEAT_H = 15;
-const BADGES_H = 18;
-const TITLE_LINE_H = 17;
-const TITLE_MAX_LINES = 3;
-const TITLE_CHARS_PER_LINE = 30;
 
 /** Landscape shape ELK packs connected components into. */
 const TARGET_ASPECT = 1.9;
@@ -114,37 +100,6 @@ function passesFilters(issue: IssueRecord, filters: BoardFilters): boolean {
 	}
 	if (filters.hasOpenPR && !issue.linkedPRs.some((pr) => pr.state === 'open')) return false;
 	return true;
-}
-
-function hasBadgeRow(flow: Pick<IssueFlowData, 'resolvedBlockers' | 'issue'>): boolean {
-	return flow.resolvedBlockers > 0 || flow.issue.linkedPRs.length > 0;
-}
-
-/**
- * Estimated card height: mirrors IssueNode's fixed row heights so ELK positions
- * match the rendered card and no dead space or clipping appears.
- */
-export function estimateCardHeight(flow: IssueFlowData): number {
-	const titleLines = Math.min(
-		TITLE_MAX_LINES,
-		Math.max(1, Math.ceil(flow.issue.title.length / TITLE_CHARS_PER_LINE))
-	);
-	let contentHeight = HEADER_H + titleLines * TITLE_LINE_H + HEAT_H;
-	let rows = 3;
-	if (flow.issue.labels.length > 0) {
-		contentHeight += LABELS_H;
-		rows++;
-	}
-	if (flow.issue.milestone) {
-		contentHeight += MILESTONE_H;
-		rows++;
-	}
-	if (hasBadgeRow(flow)) {
-		contentHeight += BADGES_H;
-		rows++;
-	}
-	const estimated = CARD_PAD + contentHeight + (rows - 1) * ROW_GAP + 8;
-	return Math.max(132, Math.min(210, estimated));
 }
 
 /** Union-find over visible dependency edges. */
@@ -331,9 +286,9 @@ async function layoutChains(
 			edgePoints: edgePoints[component],
 			frame: {
 				x: minX - FRAME_PAD,
-				y: minY - FRAME_PAD - FRAME_HEADER,
+				y: minY - FRAME_PAD - FRAME_HEADER_HEIGHT,
 				w: maxX - minX + FRAME_PAD * 2,
-				h: maxY - minY + FRAME_PAD * 2 + FRAME_HEADER
+				h: maxY - minY + FRAME_PAD * 2 + FRAME_HEADER_HEIGHT
 			}
 		};
 	});
@@ -389,7 +344,10 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 	for (const issue of visible) {
 		const flowData = issueData(issue);
 		dataByNumber.set(issue.number, flowData);
-		sizes.set(issue.number, { width: CARD_WIDTH, height: estimateCardHeight(flowData) });
+		sizes.set(issue.number, {
+			width: CARD_WIDTH,
+			height: estimateCardHeight(cardRows(issue))
+		});
 	}
 	const chains = components.filter((group) => group.length > 1);
 	const singles = components.filter((group) => group.length === 1).map((group) => group[0]);
@@ -462,13 +420,13 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 			label: `Independent · ${singles.length} issues`,
 			count: singles.length,
 			x: -FRAME_PAD,
-			y: blockY - FRAME_PAD - FRAME_HEADER,
+			y: blockY - FRAME_PAD - FRAME_HEADER_HEIGHT,
 			w: contentWidth + FRAME_PAD * 2,
-			h: contentHeight + FRAME_PAD * 2 + FRAME_HEADER,
+			h: contentHeight + FRAME_PAD * 2 + FRAME_HEADER_HEIGHT,
 			children: best.placed.map((p) => ({
 				n: p.n,
 				x: p.x + FRAME_PAD,
-				y: p.y + FRAME_PAD + FRAME_HEADER
+				y: p.y + FRAME_PAD + FRAME_HEADER_HEIGHT
 			}))
 		});
 	}
@@ -551,9 +509,7 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 				x: p.x - offsetX + chainShiftX,
 				y: p.y - offsetY
 			}));
-			const blocked = dataByNumber.get(edge.to);
-			const blocking = !!blocked && blocked.issue.state === 'open' && blocked.openBlockers > 0;
-			const color = blocking ? '#ef4444' : '#a3a3a3';
+			const color = '#b7aea4';
 			edges.push({
 				id: `edge-${edge.from}-${edge.to}`,
 				source: `issue-${edge.from}`,
