@@ -45,12 +45,12 @@
 			if (connected) {
 				return {
 					...edge,
-					style: 'stroke: #991b1b; stroke-width: 2.5;',
+					style: 'stroke: #1d1d1d; stroke-width: 2;',
 					markerEnd: {
 						type: MarkerType.ArrowClosed,
 						width: 16,
 						height: 16,
-						color: '#991b1b'
+						color: '#1d1d1d'
 					}
 				};
 			}
@@ -96,13 +96,13 @@
 	>
 		<Panel position="top-left">
 			<div
-				class="flex items-center gap-2 border border-neutral-300 bg-white/95 px-2.5 py-1.5 text-[11px] text-neutral-700"
+				class="flex items-center gap-2 rounded-full border border-warm bg-paper/90 px-3 py-1.5 font-mono text-[9px] font-medium tracking-[0.1em] text-muted uppercase shadow-sm backdrop-blur"
 			>
-				<span class="inline-block w-5 border-t-2 border-red-500"></span> blocks
+				<span class="h-[2px] w-5 rounded-full bg-[#b7aea4]"></span> blocks
 			</div>
 		</Panel>
 		<Controls position="bottom-left" showZoom showFitView showLock={false} />
 		<MiniMap position="bottom-right" pannable zoomable nodeStrokeWidth={0} />
-		<Background variant={BackgroundVariant.Dots} gap={18} size={1.6} patternColor="#c7c7c7" />
+		<Background variant={BackgroundVariant.Dots} gap={20} size={1} patternColor="#ddd4c9" />
 	</SvelteFlow>
 </div>
