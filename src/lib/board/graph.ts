@@ -171,8 +171,6 @@ interface Pt {
 
 export interface RoundedEdgeData {
 	points: Pt[];
-	/** Node top-left positions when the route was seeded — used to follow drags. */
-	origin: { source: Pt; target: Pt };
 	[key: string]: unknown;
 }
 
@@ -464,7 +462,7 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 			height: frame.h,
 			style: `width:${frame.w}px;height:${frame.h}px`,
 			data: { label: frame.label, count: frame.count },
-			draggable: true,
+			draggable: false,
 			selectable: false
 		});
 	}
@@ -487,17 +485,6 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 		}
 	}
 
-	const nodeById = new Map(nodes.map((node) => [node.id, node]));
-	const absolutePosition = (id: string): Pt => {
-		const node = nodeById.get(id);
-		if (!node) return { x: 0, y: 0 };
-		const parent = node.parentId ? nodeById.get(node.parentId) : undefined;
-		return {
-			x: (parent?.position.x ?? 0) + node.position.x,
-			y: (parent?.position.y ?? 0) + node.position.y
-		};
-	};
-
 	const edges: Edge[] = [];
 	chainLayouts.forEach((layout) => {
 		const members = new Set(layout.members);
@@ -515,13 +502,7 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 				source: `issue-${edge.from}`,
 				target: `issue-${edge.to}`,
 				type: 'rounded',
-				data: {
-					points,
-					origin: {
-						source: absolutePosition(`issue-${edge.from}`),
-						target: absolutePosition(`issue-${edge.to}`)
-					}
-				} satisfies RoundedEdgeData,
+				data: { points } satisfies RoundedEdgeData,
 				markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color },
 				style: `stroke: ${color}; stroke-width: 1.5;`
 			});
