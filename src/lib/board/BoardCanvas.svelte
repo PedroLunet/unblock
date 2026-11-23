@@ -35,6 +35,12 @@
 	const edgeTypes = { rounded: RoundedEdge };
 
 	const flow = useSvelteFlow();
+	/** Issue cards read comfortably near 90% of their laid-out size. */
+	const FOCUS_ZOOM = 0.9;
+	const FOCUS_DURATION = 300;
+
+	let fitFrame: number | null = null;
+	let fitTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	let displayEdges = $derived.by(() => {
 		const highlighted = highlightNodeId;
@@ -58,19 +64,64 @@
 		});
 	});
 
+	function cancelFit(): void {
+		if (fitFrame !== null) {
+			cancelAnimationFrame(fitFrame);
+			fitFrame = null;
+		}
+		if (fitTimeout !== null) {
+			clearTimeout(fitTimeout);
+			fitTimeout = null;
+		}
+	}
+
 	export function fitView(): void {
-		const fit = () => void flow.fitView({ padding: 0.18, duration: 200 });
-		requestAnimationFrame(() => requestAnimationFrame(fit));
+		cancelFit();
+		fitFrame = requestAnimationFrame(() => {
+			fitFrame = requestAnimationFrame(() => {
+				fitFrame = null;
+				void flow.fitView({ padding: 0.18, duration: 200 });
+			});
+		});
 		// A second, instant fit once Svelte Flow has measured the rebuilt nodes.
-		setTimeout(() => void flow.fitView({ padding: 0.18, duration: 0 }), 180);
+		fitTimeout = setTimeout(() => {
+			fitTimeout = null;
+			void flow.fitView({ padding: 0.18, duration: 0 });
+		}, 180);
+	}
+
+	function focusEase(t: number): number {
+		return 1 - (1 - t) ** 3;
+	}
+
+	function focusIssue(issueNumber: number): void {
+		const node = flow.getInternalNode(`issue-${issueNumber}`);
+		if (!node) return;
+
+		const width = node.measured.width ?? node.width ?? 0;
+		const height = node.measured.height ?? node.height ?? 0;
+		if (!width || !height) return;
+
+		cancelFit();
+		const x = node.internals.positionAbsolute.x + width / 2;
+		const y = node.internals.positionAbsolute.y + height / 2;
+		const zoom = Math.max(flow.getZoom(), FOCUS_ZOOM);
+		void flow.setCenter(x, y, { zoom, duration: FOCUS_DURATION, ease: focusEase });
 	}
 
 	function handleNodeClick(event: { node: BoardNode }): void {
 		const node = event.node;
 		if (node.type !== 'issue') return;
 		const match = /^issue-(\d+)$/.exec(node.id);
-		if (match) onissueclick(Number(match[1]));
+		if (!match) return;
+		const issueNumber = Number(match[1]);
+		focusIssue(issueNumber);
+		onissueclick(issueNumber);
 	}
+
+	$effect(() => {
+		return () => cancelFit();
+	});
 </script>
 
 <div class="h-full w-full">
