@@ -6,9 +6,9 @@ import type { DepEdge, IssueRecord, RepoData } from '#lib/github';
 import { CARD_WIDTH, cardRows, estimateCardHeight } from './card-metrics';
 import { FRAME_HEADER_HEIGHT } from './frame-metrics';
 
-const FRAME_PAD = 20;
-const BLOCK_GAP = 72;
-const INDEP_GAP = 24;
+const FRAME_PAD = 26;
+const BLOCK_GAP = 112;
+const INDEP_GAP = 38;
 
 /** Landscape shape ELK packs connected components into. */
 const TARGET_ASPECT = 1.9;
@@ -151,16 +151,16 @@ const ELK_LAYOUT_OPTIONS: Record<string, string> = {
 	'elk.edgeRouting': 'ORTHOGONAL',
 	'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
 	'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-	'elk.spacing.nodeNode': '28',
-	'elk.spacing.edgeNode': '20',
-	'elk.spacing.edgeEdge': '16',
-	'elk.layered.spacing.nodeNodeBetweenLayers': '76',
-	'elk.layered.spacing.edgeNodeBetweenLayers': '20',
-	'elk.layered.spacing.edgeEdgeBetweenLayers': '16',
+	'elk.spacing.nodeNode': '44',
+	'elk.spacing.edgeNode': '34',
+	'elk.spacing.edgeEdge': '26',
+	'elk.layered.spacing.nodeNodeBetweenLayers': '112',
+	'elk.layered.spacing.edgeNodeBetweenLayers': '34',
+	'elk.layered.spacing.edgeEdgeBetweenLayers': '26',
 	// One layout for every chain, packed to a landscape canvas instead of a
 	// tall stack of frames.
 	'elk.separateConnectedComponents': 'true',
-	'elk.spacing.componentComponent': '76',
+	'elk.spacing.componentComponent': '124',
 	'elk.aspectRatio': String(TARGET_ASPECT)
 };
 

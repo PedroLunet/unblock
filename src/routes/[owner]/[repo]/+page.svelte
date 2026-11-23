@@ -118,7 +118,7 @@
 
 <div class="flex h-dvh flex-col bg-canvas">
 	<header
-		class="flex flex-wrap items-center gap-3 border-b border-warm/80 bg-canvas/85 px-4 py-2 text-sm backdrop-blur-md"
+		class="flex flex-wrap items-center gap-4 border-b border-warm/80 bg-canvas/85 px-5 py-2.5 text-sm backdrop-blur-md"
 	>
 		<button
 			type="button"

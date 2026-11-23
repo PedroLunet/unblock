@@ -90,7 +90,7 @@
 	data-tone={tone}
 	style={`gap: ${CARD_GAP}px; padding: ${CARD_PAD}px; border-width: ${CARD_BORDER}px;`}
 >
-	<header class="flex shrink-0 items-center gap-1.5" style={`height: ${HEADER_HEIGHT}px`}>
+	<header class="flex shrink-0 items-center gap-2" style={`height: ${HEADER_HEIGHT}px`}>
 		<span class="font-mono text-[11px] leading-none text-quiet tabular-nums">
 			#{issue.number}
 		</span>
@@ -177,12 +177,12 @@
 
 	{#if rows.labels}
 		<div
-			class="flex shrink-0 items-center gap-1 overflow-hidden"
+			class="flex shrink-0 items-center gap-1.5 overflow-hidden"
 			style={`height: ${LABELS_HEIGHT}px`}
 		>
 			{#each labels as label (label.name)}
 				<span
-					class="inline-flex h-[18px] max-w-[112px] shrink-0 items-center gap-1 rounded-[5px] border border-chip-line bg-chip px-1.5 text-[10.5px] leading-none font-medium text-muted"
+					class="inline-flex h-5 max-w-[112px] shrink-0 items-center gap-1 rounded-[5px] border border-chip-line bg-chip px-1.5 text-[10.5px] leading-none font-medium text-muted"
 					style={labelStyle(label.color)}
 					title={label.name}
 				>
@@ -198,7 +198,7 @@
 
 	{#if rows.milestone && issue.milestone}
 		<div
-			class="flex shrink-0 items-center gap-1.5 overflow-hidden text-[10.5px] leading-none"
+			class="flex shrink-0 items-center gap-2 overflow-hidden text-[10.5px] leading-none"
 			style={`height: ${MILESTONE_HEIGHT}px`}
 			title={`Milestone: ${issue.milestone.title}`}
 		>
@@ -222,7 +222,7 @@
 	{/if}
 
 	<div
-		class="flex shrink-0 items-center gap-2 overflow-hidden text-[10.5px] leading-none text-quiet"
+		class="flex shrink-0 items-center gap-2.5 overflow-hidden text-[10.5px] leading-none text-quiet"
 		style={`height: ${META_HEIGHT}px`}
 	>
 		<span
@@ -304,12 +304,12 @@
 
 	{#if rows.badges}
 		<div
-			class="flex shrink-0 items-center gap-1 overflow-hidden"
+			class="flex shrink-0 items-center gap-1.5 overflow-hidden"
 			style={`height: ${BADGES_HEIGHT}px`}
 		>
 			{#each linkedPRs as pr (pr.number)}
 				<span
-					class="inline-flex h-[18px] shrink-0 items-center gap-1 rounded-[5px] border border-chip-line bg-chip px-1.5 leading-none"
+					class="inline-flex h-5 shrink-0 items-center gap-1 rounded-[5px] border border-chip-line bg-chip px-1.5 leading-none"
 					title={prTitle(pr)}
 				>
 					<span class="h-1.5 w-1.5 rounded-full {prDotClass(pr)}" aria-hidden="true"></span>
@@ -393,7 +393,7 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 4px;
-		height: 18px;
+		height: 20px;
 		padding: 0 3px 0 5px;
 		border: 1px solid #f5c7c5;
 		border-radius: 6px;

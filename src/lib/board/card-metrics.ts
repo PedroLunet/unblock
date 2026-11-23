@@ -3,24 +3,24 @@
  * these values and IssueCard.svelte renders rows at exactly the same heights,
  * so ELK never positions a card at a size the DOM does not fill.
  */
-export const CARD_WIDTH = 272;
+export const CARD_WIDTH = 284;
 
 /** Inner padding on all sides, applied by IssueCard. */
-export const CARD_PAD = 12;
+export const CARD_PAD = 14;
 /** Vertical gap between card rows, applied by IssueCard. */
-export const CARD_GAP = 6;
+export const CARD_GAP = 8;
 /** Border width, applied by IssueCard and reserved by the height model. */
 export const CARD_BORDER = 2;
 
-export const CARD_MIN_HEIGHT = 140;
-export const CARD_MAX_HEIGHT = 224;
+export const CARD_MIN_HEIGHT = 152;
+export const CARD_MAX_HEIGHT = 244;
 
-export const HEADER_HEIGHT = 20;
-export const TITLE_LINE_HEIGHT = 19;
-export const LABELS_HEIGHT = 20;
-export const MILESTONE_HEIGHT = 17;
-export const META_HEIGHT = 16;
-export const BADGES_HEIGHT = 20;
+export const HEADER_HEIGHT = 22;
+export const TITLE_LINE_HEIGHT = 21;
+export const LABELS_HEIGHT = 22;
+export const MILESTONE_HEIGHT = 19;
+export const META_HEIGHT = 18;
+export const BADGES_HEIGHT = 22;
 
 export const TITLE_MAX_LINES = 3;
 /**
