@@ -278,6 +278,16 @@ async function layoutChains(
 			maxX = Math.max(maxX, pos.x + size.width);
 			maxY = Math.max(maxY, pos.y + size.height);
 		}
+		// ELK may route a lane outside the node bounds; grow the frame to the
+		// full routed geometry so arrows never cross the frame border.
+		for (const points of edgePoints[component].values()) {
+			for (const point of points) {
+				minX = Math.min(minX, point.x);
+				minY = Math.min(minY, point.y);
+				maxX = Math.max(maxX, point.x);
+				maxY = Math.max(maxY, point.y);
+			}
+		}
 		return {
 			members: group,
 			positions,
