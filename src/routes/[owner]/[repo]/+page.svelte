@@ -12,7 +12,7 @@
 	import AuthControls from '#lib/auth/AuthControls.svelte';
 	import { session } from '#lib/auth/session.svelte.ts';
 	import { GithubError, loadRepo } from '#lib/github';
-	import type { FetchScope, RepoData } from '#lib/github';
+	import type { FetchScope, IssueRecord, RepoData } from '#lib/github';
 
 	interface PageParams {
 		owner: string;
@@ -37,17 +37,10 @@
 	let edges = $state.raw<Edge[]>([]);
 	let counts = $state<BoardModel['counts'] | null>(null);
 	let selectedNumber = $state<number | null>(null);
+	let drawerIssue = $state<IssueRecord | null>(null);
+	let drawerOpen = $state(false);
 	let layoutRevision = $state(0);
 	let canvas = $state<{ fitView: () => void } | null>(null);
-
-	let selectedIssue = $derived.by(() => {
-		if (selectedNumber === null || !data) return null;
-		return (
-			data.issues.find((issue) => issue.number === selectedNumber) ??
-			data.referencedIssues.find((issue) => issue.number === selectedNumber) ??
-			null
-		);
-	});
 
 	let options = $derived(data ? filterOptions(data) : { milestones: [], assignees: [] });
 	let authNext = $derived(page.url.pathname + page.url.search);
@@ -105,13 +98,33 @@
 		canvas?.fitView();
 	}
 
+	function findIssue(issueNumber: number): IssueRecord | null {
+		if (!data) return null;
+		return (
+			data.issues.find((issue) => issue.number === issueNumber) ??
+			data.referencedIssues.find((issue) => issue.number === issueNumber) ??
+			null
+		);
+	}
+
 	function handleIssueClick(issueNumber: number): void {
+		const issue = findIssue(issueNumber);
+		if (!issue) return;
 		selectedNumber = issueNumber;
+		drawerIssue = issue;
+		drawerOpen = true;
+	}
+
+	function closeDrawer(): void {
+		drawerOpen = false;
+		selectedNumber = null;
 	}
 
 	async function handleSignOut(): Promise<void> {
 		data = null;
 		selectedNumber = null;
+		drawerIssue = null;
+		drawerOpen = false;
 		await load(scope);
 	}
 </script>
@@ -231,7 +244,7 @@
 						bind:edges
 						highlightNodeId={selectedNumber}
 						onissueclick={handleIssueClick}
-						onpaneclick={() => (selectedNumber = null)}
+						onpaneclick={closeDrawer}
 					/>
 				</SvelteFlowProvider>
 			{/key}
@@ -276,11 +289,7 @@
 				</div>
 			{/if}
 		</div>
-
-		{#if selectedIssue && data}
-			<aside class="w-96 max-w-[40vw] shrink-0">
-				<IssueDrawer issue={selectedIssue} {data} onclose={() => (selectedNumber = null)} />
-			</aside>
-		{/if}
 	</div>
+
+	<IssueDrawer issue={drawerIssue} {data} open={drawerOpen} onclose={closeDrawer} />
 </div>
