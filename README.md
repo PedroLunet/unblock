@@ -82,4 +82,3 @@ dependency edges (the board says so).
 - `src/routes/+page.svelte` — entry form (repo URL, optional GitHub sign-in, initial scope).
 - `src/routes/[owner]/[repo]/` — the board route (client-only: `ssr = false`).
 - `src/routes/debug/+page.svelte` — raw data verification view.
-- `DECISIONS.md` — locked-in product/implementation decisions per step.
