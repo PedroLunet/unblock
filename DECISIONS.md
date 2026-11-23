@@ -230,3 +230,40 @@ Step 1" can be overridden — flag it in review.
   App callback URLs.
 - **Removed**: the PAT input, `unblock:pat` storage helpers and the legacy
   localStorage key (cleaned up on first load).
+
+## Drawer / sheet
+
+- **Generic shell**: `src/lib/ui/Drawer.svelte` has no board or GitHub imports. API:
+  `open`, `onclose`, `label`, `width = 400`, optional `header` and `actions`
+  snippets, with the body as the implicit `children` snippet. The shell owns the
+  close control (persistent on desktop, focus-revealed on mobile) and footer
+  rendering; content owns all typography and buttons.
+- **One breakpoint, two modalities**: `1024px` (CSS `min-width` and JS
+  `matchMedia`, kept in sync). Below it, a bottom sheet with a 10px gutter, 560px
+  max width, 44px grab zone, scrim, focus trap, scroll lock,
+  `aria-modal="true"` and no persistent header close icon — a focus-revealed
+  close plus the grabber, scrim and Escape keep it dismissible. At and above it,
+  a right-side drawer with 16px top/right/bottom gutters, a header close icon, no
+  scrim, no focus trap and no body scroll lock, so the canvas stays interactive.
+  Clicking another card swaps content; clicking the pane closes it.
+- **Structure**: handle → fixed header → scrollable body → optional action row.
+  The body is the only scroll container (`flex: 1 1 auto; min-height: 0`); the
+  mobile sheet is content-driven up to `min(85dvh, 760px)`. Actions include
+  `env(safe-area-inset-bottom, 0px)` defensively.
+- **Surface**: solid `--color-paper`, 1px `--color-warm` border, 20px radius,
+  layered warm-neutral shadow plus a light inset top edge. No backdrop blur on
+  the panel (the canvas stays the expensive layer), a
+  `prefers-reduced-transparency` solid fallback, and a stronger
+  `prefers-contrast` border.
+- **Motion**: CSS transitions only, `transform`/`opacity` only,
+  `cubic-bezier(0.32, 0.72, 0, 1)`; 300ms in, 220ms out, 200ms scrim fade.
+  Nothing unmounts on close, so CSS retargets from the live position. Mobile
+  drag is Pointer Events with capture, `touch-action: none` on the handle only,
+  rubber-banded upward overshoot, a 100ms velocity sample and Apple's 0.998
+  momentum projection for dismissal. Reduced motion keeps opacity feedback and
+  drops spatial movement.
+- **Page state**: `selectedNumber` (canvas highlight), `drawerIssue` (last
+  non-null issue, retained through exit), and `drawerOpen` (presence). Opening a
+  card sets all three; closing clears the highlight but keeps the issue mounted
+  for the exit frames. The drawer renders once near the page root so no canvas
+  transform can clip it and the board never reflows. Sign-out clears all three.
