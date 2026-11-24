@@ -18,13 +18,26 @@ export { GithubError } from './errors';
 export type { GithubErrorKind } from './errors';
 export { parseRepoInput } from './input';
 export type { RepoTarget } from './input';
-export { clearLegacyPat } from './storage';
+export { buildSnapshot, diffRepo } from './snapshot';
+export type {
+	DiffEdge,
+	DiffIssue,
+	DiffIssueUpdate,
+	DiffPullRequest,
+	IssueUpdateField,
+	RepoDiff,
+	RepoSnapshot,
+	SnapshotEdge,
+	SnapshotIssue,
+	SnapshotPullRequest
+} from './snapshot';
+export { clearLegacyPat, readSnapshot, repoCacheKey, writeSnapshot } from './storage';
 
 export interface LoadRepoOptions {
 	/** Signed-in requests use GraphQL via the server proxy; anonymous uses REST. */
 	auth: AuthMode;
 	scope: FetchScope;
-	/** Skip the 5-minute cache and force a refetch. */
+	/** Skip the 1-hour cache and force a refetch. */
 	refresh?: boolean;
 	progress?: (message: string) => void;
 }
@@ -47,7 +60,7 @@ const EDGE_PRIORITY: Record<DependencyRef['source'], number> = {
 /**
  * Load a repository's issues, dependency edges and linked PRs.
  * Signed-in users get GraphQL via the server proxy; anonymous uses capped REST.
- * Results are cached in localStorage for 5 minutes (bypass with `refresh`).
+ * Results are cached in localStorage for an hour (bypass with `refresh`).
  */
 export async function loadRepo(
 	owner: string,
