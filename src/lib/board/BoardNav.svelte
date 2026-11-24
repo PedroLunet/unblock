@@ -392,172 +392,172 @@
 	onpointerenter={warmTips}
 	onpointerleave={coolTips}
 >
-	<div class="rail-head">
-		<a
-			class="rail-item rail-brand"
-			href={resolve('/')}
-			aria-label="unblock home"
-			data-tip="Back to unblock"
-		>
-			<span class="brand-mark" aria-hidden="true">
-				<img src={mark} alt="" width="24" height="24" draggable="false" />
-				{#if loading}
-					<span class="loading-dot"></span>
-				{/if}
-			</span>
-			<span class="rail-copy" aria-hidden={!expanded}>
-				<span class="brand-title">unblock</span>
-				<span class="brand-sub" title={loading ? progress : undefined}>
-					{loading ? progress || 'Loading repository…' : 'dependency board'}
+	<div class="rail-main">
+		<div class="rail-head">
+			<a
+				class="rail-item rail-brand"
+				href={resolve('/')}
+				aria-label="unblock home"
+				data-tip="Back to unblock"
+			>
+				<span class="brand-mark" aria-hidden="true">
+					<img src={mark} alt="" width="24" height="24" draggable="false" />
+					{#if loading}
+						<span class="loading-dot"></span>
+					{/if}
 				</span>
-			</span>
-		</a>
+				<span class="rail-copy" aria-hidden={!expanded}>
+					<span class="brand-title">unblock</span>
+					<span class="brand-sub" title={loading ? progress : undefined}>
+						{loading ? progress || 'Loading repository…' : 'dependency board'}
+					</span>
+				</span>
+			</a>
 
-		<a
-			class="rail-item"
-			href={`https://github.com/${owner}/${repo}`}
-			target="_blank"
-			rel="external noreferrer"
-			aria-label={`Open ${owner}/${repo} on GitHub`}
-			data-tip={`${owner}/${repo} on GitHub`}
-		>
-			<span class="rail-icon">
-				<Icon name="github" size={17} />
-			</span>
-			<span class="rail-copy" aria-hidden={!expanded}>
-				<span class="rail-label">Repository</span>
-				<span class="rail-value">{owner}/{repo}</span>
-			</span>
-			<span class="rail-trailing"><Icon name="external" size={13} /></span>
-		</a>
-	</div>
+			<a
+				class="rail-item"
+				href={`https://github.com/${owner}/${repo}`}
+				target="_blank"
+				rel="external noreferrer"
+				aria-label={`Open ${owner}/${repo} on GitHub`}
+				data-tip={`${owner}/${repo} on GitHub`}
+			>
+				<span class="rail-icon">
+					<Icon name="github" size={17} />
+				</span>
+				<span class="rail-copy" aria-hidden={!expanded}>
+					<span class="rail-label">Repository</span>
+					<span class="rail-value">{owner}/{repo}</span>
+				</span>
+				<span class="rail-trailing"><Icon name="external" size={13} /></span>
+			</a>
+		</div>
 
-	<div class="rail-sections" id="board-controls-panel" inert={isMobile && !expanded}>
-		<div class="rail-sections-inner">
-			<div class="rail-group">
-				<div class="rail-rule">
-					<span class="rail-section" aria-hidden={!expanded}>Filters</span>
-				</div>
+		<div class="rail-sections" id="board-controls-panel" inert={isMobile && !expanded}>
+			<div class="rail-sections-inner">
+				<div class="rail-group">
+					<div class="rail-rule">
+						<span class="rail-section" aria-hidden={!expanded}>Filters</span>
+					</div>
 
-				<button
-					type="button"
-					class="rail-item"
-					class:is-open={menu === 'scope'}
-					aria-haspopup="dialog"
-					aria-expanded={menu === 'scope'}
-					aria-label={`Issues shown: ${scopeValue}. Change scope`}
-					data-tip={`Scope · ${scopeValue}`}
-					onclick={(event) => toggleMenu('scope', event.currentTarget)}
-				>
-					<span class="rail-icon">
-						<Icon name="circle-dot" />
-						<span class="rail-dot" class:is-on={scope === 'all'}></span>
-					</span>
-					<span class="rail-copy" aria-hidden={!expanded}>
-						<span class="rail-label">Scope</span>
-						<span class="rail-value">{scopeValue}</span>
-					</span>
-					<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
-				</button>
-
-				<button
-					type="button"
-					class="rail-item"
-					class:is-open={menu === 'milestone'}
-					aria-haspopup="dialog"
-					aria-expanded={menu === 'milestone'}
-					aria-label={`Milestone: ${milestoneValue}. Change milestone filter`}
-					data-tip={`Milestone · ${milestoneValue}`}
-					onclick={(event) => toggleMenu('milestone', event.currentTarget)}
-				>
-					<span class="rail-icon">
-						<Icon name="flag" />
-						<span class="rail-dot" class:is-on={milestone !== 'all'}></span>
-					</span>
-					<span class="rail-copy" aria-hidden={!expanded}>
-						<span class="rail-label">Milestone</span>
-						<span class="rail-value">{milestoneValue}</span>
-					</span>
-					<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
-				</button>
-
-				<button
-					type="button"
-					class="rail-item"
-					class:is-open={menu === 'assignee'}
-					aria-haspopup="dialog"
-					aria-expanded={menu === 'assignee'}
-					aria-label={`Assignee: ${assigneeValue}. Change assignee filter`}
-					data-tip={`Assignee · ${assigneeValue}`}
-					onclick={(event) => toggleMenu('assignee', event.currentTarget)}
-				>
-					<span class="rail-icon">
-						<Icon name="user" />
-						<span class="rail-dot" class:is-on={assignee !== 'all'}></span>
-					</span>
-					<span class="rail-copy" aria-hidden={!expanded}>
-						<span class="rail-label">Assignee</span>
-						<span class="rail-value">{assigneeValue}</span>
-					</span>
-					<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
-				</button>
-
-				<button
-					type="button"
-					class="rail-item"
-					aria-pressed={hasOpenPR}
-					aria-label={`Only issues with open pull requests: ${hasOpenPR ? 'on' : 'off'}`}
-					data-tip={`Pull requests · ${hasOpenPR ? 'only open' : 'any state'}`}
-					onclick={() => onhasprchange(!hasOpenPR)}
-				>
-					<span class="rail-icon">
-						<Icon name="git-pull-request" />
-						<span class="rail-dot" class:is-on={hasOpenPR}></span>
-					</span>
-					<span class="rail-copy" aria-hidden={!expanded}>
-						<span class="rail-label">Pull requests</span>
-						<span class="rail-value">
-							{hasOpenPR ? 'Only open PRs' : 'Any state'}
+					<button
+						type="button"
+						class="rail-item"
+						class:is-open={menu === 'scope'}
+						aria-haspopup="dialog"
+						aria-expanded={menu === 'scope'}
+						aria-label={`Issues shown: ${scopeValue}. Change scope`}
+						data-tip={`Scope · ${scopeValue}`}
+						onclick={(event) => toggleMenu('scope', event.currentTarget)}
+					>
+						<span class="rail-icon">
+							<Icon name="circle-dot" />
+							<span class="rail-dot" class:is-on={scope === 'all'}></span>
 						</span>
-					</span>
-					<span class="rail-switch" class:is-on={hasOpenPR} aria-hidden="true">
-						<span></span>
-					</span>
-				</button>
-			</div>
+						<span class="rail-copy" aria-hidden={!expanded}>
+							<span class="rail-label">Scope</span>
+							<span class="rail-value">{scopeValue}</span>
+						</span>
+						<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
+					</button>
 
-			<div class="rail-group">
-				<div class="rail-rule">
-					<span class="rail-section" aria-hidden={!expanded}>Actions</span>
+					<button
+						type="button"
+						class="rail-item"
+						class:is-open={menu === 'milestone'}
+						aria-haspopup="dialog"
+						aria-expanded={menu === 'milestone'}
+						aria-label={`Milestone: ${milestoneValue}. Change milestone filter`}
+						data-tip={`Milestone · ${milestoneValue}`}
+						onclick={(event) => toggleMenu('milestone', event.currentTarget)}
+					>
+						<span class="rail-icon">
+							<Icon name="flag" />
+							<span class="rail-dot" class:is-on={milestone !== 'all'}></span>
+						</span>
+						<span class="rail-copy" aria-hidden={!expanded}>
+							<span class="rail-label">Milestone</span>
+							<span class="rail-value">{milestoneValue}</span>
+						</span>
+						<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
+					</button>
+
+					<button
+						type="button"
+						class="rail-item"
+						class:is-open={menu === 'assignee'}
+						aria-haspopup="dialog"
+						aria-expanded={menu === 'assignee'}
+						aria-label={`Assignee: ${assigneeValue}. Change assignee filter`}
+						data-tip={`Assignee · ${assigneeValue}`}
+						onclick={(event) => toggleMenu('assignee', event.currentTarget)}
+					>
+						<span class="rail-icon">
+							<Icon name="user" />
+							<span class="rail-dot" class:is-on={assignee !== 'all'}></span>
+						</span>
+						<span class="rail-copy" aria-hidden={!expanded}>
+							<span class="rail-label">Assignee</span>
+							<span class="rail-value">{assigneeValue}</span>
+						</span>
+						<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
+					</button>
+
+					<button
+						type="button"
+						class="rail-item"
+						aria-pressed={hasOpenPR}
+						aria-label={`Only issues with open pull requests: ${hasOpenPR ? 'on' : 'off'}`}
+						data-tip={`Pull requests · ${hasOpenPR ? 'only open' : 'any state'}`}
+						onclick={() => onhasprchange(!hasOpenPR)}
+					>
+						<span class="rail-icon">
+							<Icon name="git-pull-request" />
+							<span class="rail-dot" class:is-on={hasOpenPR}></span>
+						</span>
+						<span class="rail-copy" aria-hidden={!expanded}>
+							<span class="rail-label">Pull requests</span>
+							<span class="rail-value">
+								{hasOpenPR ? 'Only open PRs' : 'Any state'}
+							</span>
+						</span>
+						<span class="rail-switch" class:is-on={hasOpenPR} aria-hidden="true">
+							<span></span>
+						</span>
+					</button>
 				</div>
 
-				<button
-					type="button"
-					class="rail-item"
-					class:is-busy={refreshing}
-					aria-busy={refreshing}
-					aria-label={refreshing
-						? 'Refreshing board data from GitHub'
-						: 'Refresh board data from GitHub'}
-					data-tip={refreshTip}
-					disabled={loading || refreshing}
-					onclick={onrefresh}
-				>
-					<span class="rail-icon">
-						<Icon name="refresh" />
-					</span>
-					<span class="rail-copy" aria-hidden={!expanded}>
-						<span class="rail-label">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
-						<span class="rail-value">{refreshValue}</span>
-					</span>
-				</button>
+				<div class="rail-group">
+					<div class="rail-rule">
+						<span class="rail-section" aria-hidden={!expanded}>Actions</span>
+					</div>
+
+					<button
+						type="button"
+						class="rail-item"
+						class:is-busy={refreshing}
+						aria-busy={refreshing}
+						aria-label={refreshing
+							? 'Refreshing board data from GitHub'
+							: 'Refresh board data from GitHub'}
+						data-tip={refreshTip}
+						disabled={loading || refreshing}
+						onclick={onrefresh}
+					>
+						<span class="rail-icon">
+							<Icon name="refresh" />
+						</span>
+						<span class="rail-copy" aria-hidden={!expanded}>
+							<span class="rail-label">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+							<span class="rail-value">{refreshValue}</span>
+						</span>
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
 
 	<div class="rail-foot">
-		<div class="rail-divider rail-divider-foot" aria-hidden="true"></div>
-
 		<button
 			type="button"
 			class="rail-item"
@@ -874,6 +874,11 @@
 	.rail {
 		--rail-ease: cubic-bezier(0.32, 0.72, 0, 1);
 		--rail-out: cubic-bezier(0.23, 1, 0.32, 1);
+		--rail-dark: #171512;
+		--rail-dark-lift: #211e1a;
+		--rail-dark-deep: #151412;
+		--rail-on-dark-accent: #a9b2ff;
+		--rail-on-dark-muted: #b8afa4;
 		position: fixed;
 		top: max(12px, env(safe-area-inset-top, 0px));
 		bottom: max(12px, env(safe-area-inset-bottom, 0px));
@@ -882,22 +887,31 @@
 		display: flex;
 		flex-direction: column;
 		width: 60px;
-		padding: 7px;
-		border: 1px solid color-mix(in oklab, var(--color-warm) 82%, white);
 		border-radius: 22px;
-		background: color-mix(in oklab, var(--color-paper) 84%, transparent);
 		box-shadow:
 			0 24px 56px -34px rgb(29 29 29 / 0.36),
-			0 8px 20px -14px rgb(29 29 29 / 0.14),
-			inset 0 1px 0 rgb(255 255 255 / 0.72);
-		-webkit-backdrop-filter: blur(20px) saturate(1.35);
-		backdrop-filter: blur(20px) saturate(1.35);
+			0 8px 20px -14px rgb(29 29 29 / 0.14);
 		transition: width 260ms var(--rail-ease);
 	}
 
 	.rail.is-expanded {
 		width: min(268px, calc(100vw - max(12px, env(safe-area-inset-left, 0px)) - 12px));
-		background: color-mix(in oklab, var(--color-paper) 92%, transparent);
+	}
+
+	/* The paper panel is the top layer. It ends above the dock, overlapping
+	   the dark base so the black reads as backing, not as a lid. */
+	.rail-main {
+		position: relative;
+		z-index: 2;
+		display: flex;
+		flex: 1 0 auto;
+		flex-direction: column;
+		margin-bottom: -22px;
+		padding: 7px;
+		border: 1px solid color-mix(in oklab, var(--color-warm) 82%, white);
+		border-radius: 22px;
+		background: var(--color-paper);
+		box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
 	}
 
 	.rail-head,
@@ -920,16 +934,17 @@
 	}
 
 	.rail-foot {
-		margin-top: auto;
-		padding-top: 2px;
-	}
-
-	.rail-divider {
+		position: relative;
+		z-index: 1;
 		flex: none;
-		height: 1px;
-		margin: 5px 4px;
-		border-radius: 999px;
-		background: color-mix(in oklab, var(--color-line) 78%, transparent);
+		margin: 0;
+		/* 22px sits behind the paper panel; the rest keeps the first control
+		   below the paper edge with the same optical padding as before. */
+		padding: 29px 8px 8px;
+		border-radius: 0 0 22px 22px;
+		background:
+			radial-gradient(150% 88% at 50% 0%, rgb(255 253 250 / 0.09), transparent 62%),
+			linear-gradient(180deg, var(--rail-dark-lift) 0%, var(--rail-dark-deep) 76%);
 	}
 
 	/* The section marker is one fixed row: a rule when the rail is thin, the
@@ -1045,6 +1060,54 @@
 
 	.rail-item.is-open .rail-icon {
 		color: var(--color-brand-strong);
+	}
+
+	/* The foot is the rail's power base: filters stay on paper, while the
+	   persistent system controls sit on a black dock. */
+	.rail-foot .rail-item {
+		color: rgb(255 253 250 / 0.76);
+	}
+
+	.rail-foot .rail-label {
+		color: var(--color-paper);
+	}
+
+	.rail-foot .rail-value {
+		color: var(--rail-on-dark-muted);
+	}
+
+	.rail-foot .rail-trailing {
+		color: rgb(255 253 250 / 0.46);
+	}
+
+	.rail-foot .rail-item.is-open {
+		background: rgb(255 253 250 / 0.12);
+		color: var(--color-paper);
+	}
+
+	.rail-foot .rail-item.is-open .rail-icon {
+		color: var(--rail-on-dark-accent);
+	}
+
+	.rail-foot .rail-item:focus-visible {
+		outline-color: var(--rail-on-dark-accent);
+	}
+
+	.rail-foot .rail-dot {
+		box-shadow: 0 0 0 2px var(--rail-dark);
+	}
+
+	.rail-foot .rail-dot.is-warning {
+		background: #ff8a3d;
+	}
+
+	.rail-foot .rail-avatar {
+		background: #2b2824;
+		box-shadow: 0 0 0 1px rgb(255 253 250 / 0.26);
+	}
+
+	.rail-foot .avatar-skeleton {
+		background: rgb(255 253 250 / 0.14);
 	}
 
 	.rail-brand {
@@ -1635,6 +1698,19 @@
 			color: var(--color-ink);
 		}
 
+		.rail-foot .rail-item:hover:not(:disabled) {
+			background: rgb(255 253 250 / 0.08);
+			color: var(--color-paper);
+		}
+
+		.rail-foot .rail-item:hover:not(:disabled) .rail-icon {
+			color: var(--color-paper);
+		}
+
+		.rail-foot .rail-item.is-open:hover:not(:disabled) {
+			background: rgb(255 253 250 / 0.16);
+		}
+
 		.rail[data-expanded='false'] .rail-item[data-tip]:hover::after {
 			opacity: 1;
 			visibility: visible;
@@ -1669,10 +1745,6 @@
 
 		.rail-brand {
 			height: 46px;
-		}
-
-		.rail-divider {
-			margin-block: 4px;
 		}
 
 		.menu-option {
@@ -1720,12 +1792,6 @@
 		}
 	}
 
-	@media (max-height: 680px) {
-		.rail-divider {
-			margin-block: 3px;
-		}
-	}
-
 	@media (max-height: 560px) {
 		.rail {
 			overflow-x: clip;
@@ -1748,20 +1814,42 @@
 			left: max(12px, env(safe-area-inset-left, 0px));
 			width: auto;
 			min-height: 60px;
+			padding: 7px;
+			border: 1px solid color-mix(in oklab, var(--color-warm) 82%, white);
 			flex-direction: row;
 			flex-wrap: nowrap;
 			align-items: center;
 			gap: 2px;
 			overflow: visible;
+			background: color-mix(in oklab, var(--color-paper) 84%, transparent);
+			box-shadow:
+				0 24px 56px -34px rgb(29 29 29 / 0.36),
+				0 8px 20px -14px rgb(29 29 29 / 0.14),
+				inset 0 1px 0 rgb(255 255 255 / 0.72);
+			-webkit-backdrop-filter: blur(20px) saturate(1.35);
+			backdrop-filter: blur(20px) saturate(1.35);
 		}
 
 		.rail.is-expanded {
 			width: auto;
 		}
 
-		.rail-head,
-		.rail-foot {
+		.rail-main,
+		.rail-head {
 			display: contents;
+		}
+
+		.rail-foot {
+			flex: none;
+			flex-direction: row;
+			gap: 0;
+			margin: 0 0 0 auto;
+			padding: 0;
+			border-radius: 14px;
+			background:
+				radial-gradient(140% 160% at 50% 0%, rgb(255 253 250 / 0.08), transparent 60%),
+				linear-gradient(180deg, var(--rail-dark-lift) 0%, var(--rail-dark-deep) 90%);
+			box-shadow: inset 0 1px 0 rgb(255 253 250 / 0.1);
 		}
 
 		.rail-head > .rail-item,
@@ -1789,10 +1877,6 @@
 		.rail-head > a[target='_blank'] {
 			flex: 1;
 			min-width: 0;
-		}
-
-		.rail-divider-foot {
-			display: none;
 		}
 
 		.rail-foot .rail-copy,
@@ -1881,6 +1965,7 @@
 
 	@media (prefers-reduced-transparency: reduce) {
 		.rail,
+		.rail-main,
 		.rail-menu {
 			background: var(--color-paper);
 			-webkit-backdrop-filter: none;
@@ -1890,6 +1975,7 @@
 
 	@media (prefers-contrast: more) {
 		.rail,
+		.rail-main,
 		.rail-menu,
 		.rail-sections {
 			border-color: var(--color-muted);
