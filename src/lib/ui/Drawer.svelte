@@ -448,13 +448,17 @@
 	.drawer-panel {
 		box-sizing: border-box;
 		position: absolute;
-		left: 50%;
+		/* Center with auto margins; individual `translate` is unreliable in
+		   some mobile Chromium builds and pushes the sheet off the right edge. */
+		right: 0;
 		bottom: 10px;
+		left: 0;
 		z-index: 1;
 		display: flex;
 		flex-direction: column;
 		width: calc(100% - 20px);
 		max-width: 560px;
+		margin-inline: auto;
 		max-height: min(85dvh, 760px);
 		overflow: hidden;
 		border: 1px solid var(--color-warm);
@@ -467,7 +471,6 @@
 		color: var(--color-ink);
 		pointer-events: auto;
 		outline: none;
-		translate: -50% 0;
 		transform: translateY(calc(100% + 10px));
 		visibility: hidden;
 		transition:
@@ -590,8 +593,8 @@
 			left: auto;
 			width: min(var(--drawer-width, 400px), calc(100vw - 32px));
 			max-width: none;
+			margin-inline: 0;
 			max-height: none;
-			translate: none;
 			transform: translateX(calc(100% + 16px));
 		}
 
