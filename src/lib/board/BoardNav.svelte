@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { fade } from 'svelte/transition';
@@ -63,6 +63,7 @@
 	const EXPANDED_KEY = 'unblock:rail-expanded';
 	const MENU_GAP = 10;
 	const VIEWPORT_PAD = 12;
+	const TIP_DELAY = 320;
 	const FOCUSABLE =
 		'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 	const motion = new MediaQuery('(prefers-reduced-motion: reduce)', false);
@@ -79,6 +80,8 @@
 	let menuStyle = $state('left:-9999px;top:-9999px;');
 	let railEl = $state<HTMLElement | null>(null);
 	let controlsEl = $state<HTMLButtonElement | null>(null);
+	let tipsWarm = $state(false);
+	let tipsTimer: number | null = null;
 
 	onMount(() => {
 		try {
@@ -87,6 +90,27 @@
 			expanded = false;
 		}
 	});
+
+	onDestroy(() => {
+		if (tipsTimer !== null) window.clearTimeout(tipsTimer);
+	});
+
+	/** After the first tooltip has had time to open, show its neighbours at once. */
+	function warmTips(event: PointerEvent): void {
+		if (tipsTimer !== null || event.pointerType === 'touch') return;
+		tipsTimer = window.setTimeout(() => {
+			tipsWarm = true;
+			tipsTimer = null;
+		}, TIP_DELAY);
+	}
+
+	function coolTips(): void {
+		if (tipsTimer !== null) {
+			window.clearTimeout(tipsTimer);
+			tipsTimer = null;
+		}
+		tipsWarm = false;
+	}
 
 	let wasMobile = false;
 	$effect(() => {
@@ -362,8 +386,11 @@
 	class="rail"
 	class:is-expanded={expanded}
 	class:has-menu={menu !== null}
+	class:tips-warm={tipsWarm}
 	data-expanded={expanded}
 	aria-label="Board controls"
+	onpointerenter={warmTips}
+	onpointerleave={coolTips}
 >
 	<div class="rail-head">
 		<a
@@ -405,11 +432,11 @@
 		</a>
 	</div>
 
-	<div class="rail-divider rail-divider-head" aria-hidden="true"></div>
-
 	<div class="rail-sections" id="board-controls-panel" inert={isMobile && !expanded}>
 		<div class="rail-group">
-			<p class="rail-section" aria-hidden={!expanded}>Filters</p>
+			<div class="rail-rule">
+				<span class="rail-section" aria-hidden={!expanded}>Filters</span>
+			</div>
 
 			<button
 				type="button"
@@ -498,10 +525,10 @@
 			</button>
 		</div>
 
-		<div class="rail-divider rail-divider-groups" aria-hidden="true"></div>
-
 		<div class="rail-group">
-			<p class="rail-section" aria-hidden={!expanded}>Actions</p>
+			<div class="rail-rule">
+				<span class="rail-section" aria-hidden={!expanded}>Actions</span>
+			</div>
 
 			<button
 				type="button"
@@ -598,13 +625,23 @@
 			onclick={toggleExpanded}
 		>
 			<span class="rail-icon">
-				{#if isMobile}
-					<Icon name="sliders" />
-					{#if filtersActive}
-						<span class="rail-dot is-on"></span>
-					{/if}
-				{:else}
-					<Icon name={expanded ? 'chevrons-left' : 'chevrons-right'} />
+				<svg
+					class="panel-icon"
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.75"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<rect x="3.5" y="3.5" width="17" height="17" rx="4.5" />
+					<line class="panel-icon-bar" x1="8.5" y1="8" x2="8.5" y2="16" />
+				</svg>
+				{#if isMobile && filtersActive}
+					<span class="rail-dot is-on"></span>
 				{/if}
 			</span>
 			<span class="rail-copy" aria-hidden={!expanded}>
@@ -887,31 +924,61 @@
 		background: color-mix(in oklab, var(--color-line) 78%, transparent);
 	}
 
+	/* The section marker is one fixed row: a rule when the rail is thin, the
+	   section title in the same slot when it opens. No title row is reserved in
+	   the collapsed rail and nothing moves when the label appears. */
+	.rail-rule {
+		position: relative;
+		flex: none;
+		height: 21px;
+		margin: 0 4px;
+	}
+
+	.rail-rule::before {
+		content: '';
+		position: absolute;
+		top: 10px;
+		right: 0;
+		left: 0;
+		height: 1px;
+		border-radius: 999px;
+		background: color-mix(in oklab, var(--color-line) 78%, transparent);
+		transition: opacity 100ms ease-out;
+	}
+
+	.rail.is-expanded .rail-rule::before {
+		opacity: 0;
+	}
+
 	.rail-section {
-		height: 8px;
-		margin: 1px 4px 1px 42px;
+		position: absolute;
+		inset: 0 0 0 11px;
+		display: flex;
+		align-items: center;
 		overflow: hidden;
-		color: var(--color-quiet);
+		color: var(--color-industrial);
 		font-family: var(--font-mono);
-		font-size: 8.5px;
-		font-weight: 500;
-		line-height: 18px;
+		font-size: 9.5px;
+		font-weight: 600;
+		line-height: 1;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		white-space: nowrap;
+		text-overflow: ellipsis;
 		opacity: 0;
 		pointer-events: none;
+		transform: translateX(-4px);
 		transition:
-			height 220ms var(--rail-ease),
-			opacity 100ms ease-out;
+			opacity 100ms ease-out,
+			transform 160ms var(--rail-out);
 	}
 
 	.rail.is-expanded .rail-section {
-		height: 22px;
 		opacity: 1;
+		transform: none;
 		transition:
-			height 220ms var(--rail-ease),
-			opacity 160ms ease-out 100ms;
+			opacity 160ms ease-out 60ms,
+			transform 200ms var(--rail-out) 60ms;
 	}
 
 	.rail-item {
@@ -939,10 +1006,6 @@
 			background-color 150ms ease,
 			color 150ms ease,
 			transform 120ms var(--rail-out);
-	}
-
-	.rail.is-expanded .rail-item {
-		padding-inline: 8px;
 	}
 
 	.rail-item:active:not(:disabled) {
@@ -1016,6 +1079,17 @@
 		height: 24px;
 	}
 
+	/* The bar sits on the right when the rail is thin and slides left when the
+	   panel opens, mirroring the sidebar state. */
+	.panel-icon-bar {
+		transform: translateX(7px);
+		transition: transform 260ms var(--rail-ease);
+	}
+
+	.rail.is-expanded .panel-icon-bar {
+		transform: none;
+	}
+
 	.rail-copy {
 		display: flex;
 		flex: 1;
@@ -1025,12 +1099,18 @@
 		overflow: hidden;
 		opacity: 0;
 		pointer-events: none;
-		transition: opacity 110ms ease-out;
+		transform: translateX(-4px);
+		transition:
+			opacity 110ms ease-out,
+			transform 160ms var(--rail-out);
 	}
 
 	.rail.is-expanded .rail-copy {
 		opacity: 1;
-		transition: opacity 170ms ease-out 110ms;
+		transform: none;
+		transition:
+			opacity 170ms ease-out 110ms,
+			transform 200ms var(--rail-out) 110ms;
 	}
 
 	.rail-label,
@@ -1554,6 +1634,12 @@
 			transition-delay: 320ms, 320ms, 0s;
 		}
 
+		/* Once a tooltip has opened, siblings should not wait for it. */
+		.rail.tips-warm .rail-item[data-tip]:hover::after {
+			transition-delay: 0s;
+			transition-duration: 0s;
+		}
+
 		.menu-close:hover {
 			background: var(--color-chip);
 			color: var(--color-ink);
@@ -1627,14 +1713,6 @@
 	}
 
 	@media (max-height: 680px) {
-		.rail-section {
-			height: 6px;
-		}
-
-		.rail.is-expanded .rail-section {
-			height: 18px;
-		}
-
 		.rail-divider {
 			margin-block: 3px;
 		}
@@ -1705,7 +1783,6 @@
 			min-width: 0;
 		}
 
-		.rail-divider-head,
 		.rail-divider-foot {
 			display: none;
 		}
@@ -1718,6 +1795,7 @@
 		.rail-brand .rail-copy {
 			display: flex;
 			opacity: 1;
+			transform: none;
 		}
 
 		.rail-brand .brand-sub {
@@ -1727,6 +1805,7 @@
 		.rail-head a[target='_blank'] .rail-copy {
 			display: flex;
 			opacity: 1;
+			transform: none;
 		}
 
 		.rail-head a[target='_blank'] .rail-label,
@@ -1781,11 +1860,6 @@
 				visibility 0s;
 		}
 
-		.rail-sections .rail-divider {
-			display: block;
-			margin: 6px 4px;
-		}
-
 		.rail-item[data-tip]::after {
 			display: none;
 		}
@@ -1830,8 +1904,10 @@
 		.rail-switch,
 		.rail-switch > span,
 		.rail-dot,
+		.rail-rule::before,
 		.rail-section,
 		.rail-sections,
+		.panel-icon-bar,
 		.menu-option,
 		.menu-close,
 		.rail-item::after {
