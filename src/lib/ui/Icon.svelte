@@ -5,7 +5,7 @@
 		| 'flag'
 		| 'user'
 		| 'git-pull-request'
-		| 'workflow'
+		| 'refresh'
 		| 'chart'
 		| 'sliders'
 		| 'chevron-right'
@@ -66,10 +66,11 @@
 			<circle cx="6" cy="6" r="3" />
 			<path d="M13 6h3a2 2 0 0 1 2 2v7" />
 			<line x1="6" x2="6" y1="9" y2="21" />
-		{:else if name === 'workflow'}
-			<rect width="8" height="8" x="3" y="3" rx="2" />
-			<path d="M7 11v4a2 2 0 0 0 2 2h4" />
-			<rect width="8" height="8" x="13" y="13" rx="2" />
+		{:else if name === 'refresh'}
+			<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+			<path d="M21 3v5h-5" />
+			<path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+			<path d="M8 16H3v5" />
 		{:else if name === 'chart'}
 			<path d="M3 3v16a2 2 0 0 0 2 2h16" />
 			<path d="M18 17V9" />

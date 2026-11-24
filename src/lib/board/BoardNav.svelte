@@ -25,13 +25,15 @@
 		counts: BoardCounts | null;
 		warnings: string[];
 		loading: boolean;
+		refreshing: boolean;
 		progress: string;
+		updatedAt: string | null;
 		authNext: string;
 		onscopechange: (scope: FetchScope) => void;
 		onmilestonechange: (value: string) => void;
 		onassigneechange: (value: string) => void;
 		onhasprchange: (value: boolean) => void;
-		onlayout: () => void;
+		onrefresh: () => void;
 		onsignout: () => void | Promise<void>;
 	}
 
@@ -46,13 +48,15 @@
 		counts,
 		warnings,
 		loading,
+		refreshing,
 		progress,
+		updatedAt,
 		authNext,
 		onscopechange,
 		onmilestonechange,
 		onassigneechange,
 		onhasprchange,
-		onlayout,
+		onrefresh,
 		onsignout
 	}: Props = $props();
 
@@ -63,6 +67,8 @@
 		'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 	const motion = new MediaQuery('(prefers-reduced-motion: reduce)', false);
 	const compact = new MediaQuery('(max-width: 767px), (max-height: 540px)', false);
+	const updatedTime = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+	const updatedDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
 	let isMobile = $derived(compact.current);
 
 	let expanded = $state(false);
@@ -97,6 +103,15 @@
 		return list.find((option) => option.value === value)?.label ?? value;
 	}
 
+	function formatUpdated(iso: string): string {
+		const date = new Date(iso);
+		if (Number.isNaN(date.getTime())) return '';
+		const now = new Date();
+		return date.toDateString() === now.toDateString()
+			? updatedTime.format(date)
+			: updatedDate.format(date);
+	}
+
 	let scopeValue = $derived(scope === 'open' ? 'Open only' : 'All issues');
 	let milestoneValue = $derived(labelFor(milestone, options.milestones, 'All milestones'));
 	let assigneeValue = $derived(labelFor(assignee, options.assignees, 'All assignees'));
@@ -116,6 +131,19 @@
 					? 'Sign in with GitHub'
 					: 'Sign-in unavailable'
 	);
+	let refreshValue = $derived.by(() => {
+		if (loading) return 'Waiting for board';
+		if (refreshing) return progress || 'Checking GitHub…';
+		if (updatedAt) return `Updated ${formatUpdated(updatedAt)}`;
+		return 'Fetch from GitHub';
+	});
+	let refreshTip = $derived.by(() => {
+		if (loading) return 'Refresh will be available once the board has loaded';
+		if (refreshing) return progress || 'Checking GitHub for updates…';
+		return `Refresh data from GitHub${
+			updatedAt ? ` · last fetched ${formatUpdated(updatedAt)}` : ''
+		}`;
+	});
 	let filtersActive = $derived(
 		scope !== 'open' || milestone !== 'all' || assignee !== 'all' || hasOpenPR
 	);
@@ -478,19 +506,21 @@
 			<button
 				type="button"
 				class="rail-item"
-				aria-label="Re-run auto-layout"
-				data-tip={loading || !counts
-					? 'Auto-layout will be available once loaded'
-					: 'Re-run auto-layout'}
-				disabled={loading || !counts}
-				onclick={onlayout}
+				class:is-busy={refreshing}
+				aria-busy={refreshing}
+				aria-label={refreshing
+					? 'Refreshing board data from GitHub'
+					: 'Refresh board data from GitHub'}
+				data-tip={refreshTip}
+				disabled={loading || refreshing}
+				onclick={onrefresh}
 			>
 				<span class="rail-icon">
-					<Icon name="workflow" />
+					<Icon name="refresh" />
 				</span>
 				<span class="rail-copy" aria-hidden={!expanded}>
-					<span class="rail-label">Auto-layout</span>
-					<span class="rail-value">Re-run the layout</span>
+					<span class="rail-label">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+					<span class="rail-value">{refreshValue}</span>
 				</span>
 			</button>
 		</div>
@@ -922,6 +952,14 @@
 	.rail-item:disabled {
 		cursor: default;
 		opacity: 0.42;
+	}
+
+	.rail-item.is-busy:disabled {
+		opacity: 1;
+	}
+
+	.rail-item.is-busy .rail-icon {
+		animation: rail-spin 900ms linear infinite;
 	}
 
 	.rail-item:focus-visible {
@@ -1808,8 +1846,15 @@
 
 		.loading-dot,
 		.status-pulse,
-		.avatar-skeleton {
+		.avatar-skeleton,
+		.rail-item.is-busy .rail-icon {
 			animation: none;
+		}
+	}
+
+	@keyframes rail-spin {
+		to {
+			transform: rotate(360deg);
 		}
 	}
 

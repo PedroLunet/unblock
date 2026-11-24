@@ -19,7 +19,7 @@ bun run dev        # vite dev server
 bun run check      # wrangler types + svelte-check
 bun run build      # production build via @sveltejs/adapter-cloudflare
 bun run preview    # run the production worker locally (wrangler dev)
-bun src/lib/github/verify.ts   # offline parser/input verification suite
+bun src/lib/github/verify.ts   # offline parser/input + snapshot-diff suite
 ```
 
 Note: run `bun run check` before `bun run build` (or remove `.svelte-kit/output`
@@ -59,6 +59,19 @@ they exist, which drowns out real diagnostics. Also run `bun run gen` after a
 If the three variables are absent, the app still runs anonymously and the UI
 reports that sign-in is not configured.
 
+## Refreshing data
+
+The board's **Refresh** action always refetches from GitHub — a full refetch is
+the only reliable way to see newly opened/closed issues, changed native
+relationships and new linked PRs. The result is diffed against the data already
+on the board, and the canvas is only rebuilt when something actually changed.
+
+The full payload stays in localStorage for an hour. A separate compact,
+body-free snapshot is kept next to it so a refresh can diff against the board
+without storing a second full payload; it is cleared with the cache on sign-out.
+If the refresh fails, the current board is kept and the error is shown with a
+retry.
+
 ## Dependency data
 
 Blocking relationships are read exclusively from GitHub's issue
@@ -72,7 +85,8 @@ dependency edges (the board says so).
 
 - `src/lib/github/` — the data layer: input parsing, native relationship
   mapping, REST (anonymous) and GraphQL (signed-in, via the server proxy)
-  loaders, localStorage cache, orchestrator.
+  loaders, the localStorage cache (1-hour TTL), the compact refresh snapshot
+  and diff, and the orchestrator.
 - `src/lib/server/auth.ts` and `src/routes/auth/` — GitHub OAuth, encrypted
   session cookie, and the GraphQL proxy.
 - `src/lib/board/` — the canvas: `graph.ts` (ELK layout + routing, chain
