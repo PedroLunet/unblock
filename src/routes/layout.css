@@ -32,11 +32,33 @@ html {
 	font-optical-sizing: auto;
 	background: var(--color-canvas);
 	color: var(--color-ink);
+	-webkit-text-size-adjust: 100%;
+	-webkit-tap-highlight-color: transparent;
+	overscroll-behavior: none;
 }
 
 body {
 	background: var(--color-canvas);
 	color: var(--color-ink);
+	overscroll-behavior: none;
+}
+
+button,
+a,
+[role='button'] {
+	touch-action: manipulation;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+}
+
+/* iOS zooms the page when a sub-16px field receives focus. */
+@media (pointer: coarse) {
+	input,
+	textarea,
+	select {
+		font-size: 16px;
+	}
 }
 
 ::selection {
