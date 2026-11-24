@@ -433,123 +433,125 @@
 	</div>
 
 	<div class="rail-sections" id="board-controls-panel" inert={isMobile && !expanded}>
-		<div class="rail-group">
-			<div class="rail-rule">
-				<span class="rail-section" aria-hidden={!expanded}>Filters</span>
-			</div>
+		<div class="rail-sections-inner">
+			<div class="rail-group">
+				<div class="rail-rule">
+					<span class="rail-section" aria-hidden={!expanded}>Filters</span>
+				</div>
 
-			<button
-				type="button"
-				class="rail-item"
-				class:is-open={menu === 'scope'}
-				aria-haspopup="dialog"
-				aria-expanded={menu === 'scope'}
-				aria-label={`Issues shown: ${scopeValue}. Change scope`}
-				data-tip={`Scope · ${scopeValue}`}
-				onclick={(event) => toggleMenu('scope', event.currentTarget)}
-			>
-				<span class="rail-icon">
-					<Icon name="circle-dot" />
-					<span class="rail-dot" class:is-on={scope === 'all'}></span>
-				</span>
-				<span class="rail-copy" aria-hidden={!expanded}>
-					<span class="rail-label">Scope</span>
-					<span class="rail-value">{scopeValue}</span>
-				</span>
-				<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
-			</button>
-
-			<button
-				type="button"
-				class="rail-item"
-				class:is-open={menu === 'milestone'}
-				aria-haspopup="dialog"
-				aria-expanded={menu === 'milestone'}
-				aria-label={`Milestone: ${milestoneValue}. Change milestone filter`}
-				data-tip={`Milestone · ${milestoneValue}`}
-				onclick={(event) => toggleMenu('milestone', event.currentTarget)}
-			>
-				<span class="rail-icon">
-					<Icon name="flag" />
-					<span class="rail-dot" class:is-on={milestone !== 'all'}></span>
-				</span>
-				<span class="rail-copy" aria-hidden={!expanded}>
-					<span class="rail-label">Milestone</span>
-					<span class="rail-value">{milestoneValue}</span>
-				</span>
-				<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
-			</button>
-
-			<button
-				type="button"
-				class="rail-item"
-				class:is-open={menu === 'assignee'}
-				aria-haspopup="dialog"
-				aria-expanded={menu === 'assignee'}
-				aria-label={`Assignee: ${assigneeValue}. Change assignee filter`}
-				data-tip={`Assignee · ${assigneeValue}`}
-				onclick={(event) => toggleMenu('assignee', event.currentTarget)}
-			>
-				<span class="rail-icon">
-					<Icon name="user" />
-					<span class="rail-dot" class:is-on={assignee !== 'all'}></span>
-				</span>
-				<span class="rail-copy" aria-hidden={!expanded}>
-					<span class="rail-label">Assignee</span>
-					<span class="rail-value">{assigneeValue}</span>
-				</span>
-				<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
-			</button>
-
-			<button
-				type="button"
-				class="rail-item"
-				aria-pressed={hasOpenPR}
-				aria-label={`Only issues with open pull requests: ${hasOpenPR ? 'on' : 'off'}`}
-				data-tip={`Pull requests · ${hasOpenPR ? 'only open' : 'any state'}`}
-				onclick={() => onhasprchange(!hasOpenPR)}
-			>
-				<span class="rail-icon">
-					<Icon name="git-pull-request" />
-					<span class="rail-dot" class:is-on={hasOpenPR}></span>
-				</span>
-				<span class="rail-copy" aria-hidden={!expanded}>
-					<span class="rail-label">Pull requests</span>
-					<span class="rail-value">
-						{hasOpenPR ? 'Only open PRs' : 'Any state'}
+				<button
+					type="button"
+					class="rail-item"
+					class:is-open={menu === 'scope'}
+					aria-haspopup="dialog"
+					aria-expanded={menu === 'scope'}
+					aria-label={`Issues shown: ${scopeValue}. Change scope`}
+					data-tip={`Scope · ${scopeValue}`}
+					onclick={(event) => toggleMenu('scope', event.currentTarget)}
+				>
+					<span class="rail-icon">
+						<Icon name="circle-dot" />
+						<span class="rail-dot" class:is-on={scope === 'all'}></span>
 					</span>
-				</span>
-				<span class="rail-switch" class:is-on={hasOpenPR} aria-hidden="true">
-					<span></span>
-				</span>
-			</button>
-		</div>
+					<span class="rail-copy" aria-hidden={!expanded}>
+						<span class="rail-label">Scope</span>
+						<span class="rail-value">{scopeValue}</span>
+					</span>
+					<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
+				</button>
 
-		<div class="rail-group">
-			<div class="rail-rule">
-				<span class="rail-section" aria-hidden={!expanded}>Actions</span>
+				<button
+					type="button"
+					class="rail-item"
+					class:is-open={menu === 'milestone'}
+					aria-haspopup="dialog"
+					aria-expanded={menu === 'milestone'}
+					aria-label={`Milestone: ${milestoneValue}. Change milestone filter`}
+					data-tip={`Milestone · ${milestoneValue}`}
+					onclick={(event) => toggleMenu('milestone', event.currentTarget)}
+				>
+					<span class="rail-icon">
+						<Icon name="flag" />
+						<span class="rail-dot" class:is-on={milestone !== 'all'}></span>
+					</span>
+					<span class="rail-copy" aria-hidden={!expanded}>
+						<span class="rail-label">Milestone</span>
+						<span class="rail-value">{milestoneValue}</span>
+					</span>
+					<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
+				</button>
+
+				<button
+					type="button"
+					class="rail-item"
+					class:is-open={menu === 'assignee'}
+					aria-haspopup="dialog"
+					aria-expanded={menu === 'assignee'}
+					aria-label={`Assignee: ${assigneeValue}. Change assignee filter`}
+					data-tip={`Assignee · ${assigneeValue}`}
+					onclick={(event) => toggleMenu('assignee', event.currentTarget)}
+				>
+					<span class="rail-icon">
+						<Icon name="user" />
+						<span class="rail-dot" class:is-on={assignee !== 'all'}></span>
+					</span>
+					<span class="rail-copy" aria-hidden={!expanded}>
+						<span class="rail-label">Assignee</span>
+						<span class="rail-value">{assigneeValue}</span>
+					</span>
+					<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
+				</button>
+
+				<button
+					type="button"
+					class="rail-item"
+					aria-pressed={hasOpenPR}
+					aria-label={`Only issues with open pull requests: ${hasOpenPR ? 'on' : 'off'}`}
+					data-tip={`Pull requests · ${hasOpenPR ? 'only open' : 'any state'}`}
+					onclick={() => onhasprchange(!hasOpenPR)}
+				>
+					<span class="rail-icon">
+						<Icon name="git-pull-request" />
+						<span class="rail-dot" class:is-on={hasOpenPR}></span>
+					</span>
+					<span class="rail-copy" aria-hidden={!expanded}>
+						<span class="rail-label">Pull requests</span>
+						<span class="rail-value">
+							{hasOpenPR ? 'Only open PRs' : 'Any state'}
+						</span>
+					</span>
+					<span class="rail-switch" class:is-on={hasOpenPR} aria-hidden="true">
+						<span></span>
+					</span>
+				</button>
 			</div>
 
-			<button
-				type="button"
-				class="rail-item"
-				class:is-busy={refreshing}
-				aria-busy={refreshing}
-				aria-label={refreshing
-					? 'Refreshing board data from GitHub'
-					: 'Refresh board data from GitHub'}
-				data-tip={refreshTip}
-				disabled={loading || refreshing}
-				onclick={onrefresh}
-			>
-				<span class="rail-icon">
-					<Icon name="refresh" />
-				</span>
-				<span class="rail-copy" aria-hidden={!expanded}>
-					<span class="rail-label">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
-					<span class="rail-value">{refreshValue}</span>
-				</span>
-			</button>
+			<div class="rail-group">
+				<div class="rail-rule">
+					<span class="rail-section" aria-hidden={!expanded}>Actions</span>
+				</div>
+
+				<button
+					type="button"
+					class="rail-item"
+					class:is-busy={refreshing}
+					aria-busy={refreshing}
+					aria-label={refreshing
+						? 'Refreshing board data from GitHub'
+						: 'Refresh board data from GitHub'}
+					data-tip={refreshTip}
+					disabled={loading || refreshing}
+					onclick={onrefresh}
+				>
+					<span class="rail-icon">
+						<Icon name="refresh" />
+					</span>
+					<span class="rail-copy" aria-hidden={!expanded}>
+						<span class="rail-label">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+						<span class="rail-value">{refreshValue}</span>
+					</span>
+				</button>
+			</div>
 		</div>
 	</div>
 
@@ -909,6 +911,12 @@
 
 	.rail-sections {
 		display: contents;
+	}
+
+	.rail-sections-inner {
+		display: flex;
+		flex: none;
+		flex-direction: column;
 	}
 
 	.rail-foot {
