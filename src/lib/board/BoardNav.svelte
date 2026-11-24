@@ -1805,7 +1805,7 @@
 	}
 
 	/* Phones and short windows: the rail becomes a floating top bar. The
-	   filter/action sections drop down from it as a separate panel. */
+	   filter/action sections grow out of the same white surface below it. */
 	@media (max-width: 767px), (max-height: 540px) {
 		.rail {
 			top: max(12px, env(safe-area-inset-top, 0px));
@@ -1817,9 +1817,9 @@
 			padding: 7px;
 			border: 1px solid color-mix(in oklab, var(--color-warm) 82%, white);
 			flex-direction: row;
-			flex-wrap: nowrap;
+			flex-wrap: wrap;
 			align-items: center;
-			gap: 2px;
+			gap: 0 2px;
 			overflow: visible;
 			background: color-mix(in oklab, var(--color-paper) 84%, transparent);
 			box-shadow:
@@ -1840,6 +1840,7 @@
 		}
 
 		.rail-foot {
+			order: 2;
 			flex: none;
 			flex-direction: row;
 			gap: 0;
@@ -1850,6 +1851,21 @@
 				radial-gradient(140% 160% at 50% 0%, rgb(255 253 250 / 0.08), transparent 60%),
 				linear-gradient(180deg, var(--rail-dark-lift) 0%, var(--rail-dark-deep) 90%);
 			box-shadow: inset 0 1px 0 rgb(255 253 250 / 0.1);
+		}
+
+		/* The bar is horizontal and the controls drop down, so turn the panel
+		   glyph on its side. The divider then travels along the new vertical
+		   axis, sliding down when the menu opens. */
+		.panel-icon {
+			transform: rotate(90deg);
+		}
+
+		.panel-icon-bar {
+			transform: none;
+		}
+
+		.rail.is-expanded .panel-icon-bar {
+			transform: translateX(7px);
 		}
 
 		.rail-head > .rail-item,
@@ -1909,47 +1925,61 @@
 			font-size: 10px;
 		}
 
+		/* The open bar is the same surface, grown downward. A zero-to-one
+		   grid row animates the height without measuring it in JS. */
 		.rail-sections {
-			position: absolute;
-			top: calc(100% + 8px);
-			right: -1px;
-			left: -1px;
-			display: flex;
-			flex-direction: column;
-			gap: 2px;
-			max-height: min(64dvh, 460px);
-			overflow-y: auto;
-			overscroll-behavior: contain;
-			padding: 8px;
-			border: 1px solid color-mix(in oklab, var(--color-warm) 88%, white);
-			border-radius: 20px;
-			background: var(--color-paper);
-			box-shadow:
-				0 24px 56px -34px rgb(29 29 29 / 0.36),
-				0 8px 20px -14px rgb(29 29 29 / 0.14),
-				inset 0 1px 0 rgb(255 255 255 / 0.72);
-			scrollbar-width: thin;
-			scrollbar-color: var(--color-warm) transparent;
-			opacity: 0;
-			visibility: hidden;
-			pointer-events: none;
-			transform: translateY(-6px) scale(0.98);
-			transform-origin: top center;
-			transition:
-				opacity 120ms ease-out,
-				transform 160ms var(--rail-out),
-				visibility 0s linear 160ms;
-		}
-
-		.rail.is-expanded .rail-sections {
+			order: 3;
+			display: grid;
+			flex: 0 0 100%;
+			grid-template-rows: 0fr;
+			width: 100%;
+			max-height: none;
+			padding: 0;
+			border: 0;
+			border-radius: 0;
+			background: transparent;
+			box-shadow: none;
 			opacity: 1;
 			visibility: visible;
 			pointer-events: auto;
 			transform: none;
-			transition:
-				opacity 180ms ease-out,
-				transform 220ms var(--rail-out),
-				visibility 0s;
+			transition: grid-template-rows 260ms var(--rail-ease);
+		}
+
+		.rail.is-expanded .rail-sections {
+			grid-template-rows: 1fr;
+		}
+
+		.rail-sections-inner {
+			min-height: 0;
+			max-height: min(64dvh, 460px);
+			overflow-x: hidden;
+			overflow-y: auto;
+			overscroll-behavior: contain;
+			padding: 0;
+			scrollbar-width: thin;
+			scrollbar-color: var(--color-warm) transparent;
+			opacity: 0;
+			transition: opacity 140ms ease-out;
+		}
+
+		.rail-sections-inner::before,
+		.rail-sections-inner::after {
+			content: '';
+			flex: none;
+		}
+
+		.rail-sections-inner::before {
+			height: 6px;
+		}
+
+		.rail-sections-inner::after {
+			height: 4px;
+		}
+
+		.rail.is-expanded .rail-sections-inner {
+			opacity: 1;
+			transition: opacity 180ms ease-out 80ms;
 		}
 
 		.rail-item[data-tip]::after {
@@ -2001,6 +2031,7 @@
 		.rail-rule::before,
 		.rail-section,
 		.rail-sections,
+		.rail-sections-inner,
 		.panel-icon-bar,
 		.menu-option,
 		.menu-close,
