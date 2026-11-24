@@ -1,15 +1,13 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { Edge } from '@xyflow/svelte';
 	import { SvelteFlowProvider } from '@xyflow/svelte';
 	import { buildBoard, filterOptions } from '#lib/board/graph.ts';
 	import type { BoardModel, BoardNode } from '#lib/board/graph.ts';
 	import BoardCanvas from '#lib/board/BoardCanvas.svelte';
+	import BoardNav from '#lib/board/BoardNav.svelte';
 	import IssueDrawer from '#lib/board/IssueDrawer.svelte';
-	import AuthControls from '#lib/auth/AuthControls.svelte';
 	import { session } from '#lib/auth/session.svelte.ts';
 	import { GithubError, loadRepo } from '#lib/github';
 	import type { FetchScope, IssueRecord, RepoData } from '#lib/github';
@@ -127,168 +125,102 @@
 		drawerOpen = false;
 		await load(scope);
 	}
+
+	function changeScope(value: FetchScope): void {
+		scope = value;
+	}
+
+	function changeMilestone(value: string): void {
+		milestone = value;
+		void rebuild();
+	}
+
+	function changeAssignee(value: string): void {
+		assignee = value;
+		void rebuild();
+	}
+
+	function changeHasOpenPR(value: boolean): void {
+		hasOpenPR = value;
+		void rebuild();
+	}
 </script>
 
-<div class="flex h-dvh flex-col bg-canvas">
-	<header
-		class="flex flex-wrap items-center gap-4 border-b border-warm/80 bg-canvas/85 px-5 py-2.5 text-sm backdrop-blur-md"
-	>
-		<button
-			type="button"
-			class="-ml-2 rounded-md px-2 py-1 text-xs font-medium text-muted transition-colors hover:bg-paper hover:text-ink"
-			onclick={() => goto(resolve('/'))}
-		>
-			← unblock
-		</button>
-		<a
-			class="font-mono text-xs font-medium text-ink underline decoration-warm underline-offset-4 hover:decoration-ink"
-			href={`https://github.com/${owner}/${repo}`}
-			target="_blank"
-			rel="external noreferrer"
-		>
-			{owner}/{repo}
-		</a>
+<div class="h-dvh overflow-hidden bg-canvas">
+	<BoardNav
+		{owner}
+		{repo}
+		{scope}
+		onscopechange={changeScope}
+		{milestone}
+		onmilestonechange={changeMilestone}
+		{assignee}
+		onassigneechange={changeAssignee}
+		{hasOpenPR}
+		onhasprchange={changeHasOpenPR}
+		{options}
+		{counts}
+		warnings={data?.meta.warnings ?? []}
+		{loading}
+		{progress}
+		{authNext}
+		onlayout={() => void rebuild()}
+		onsignout={handleSignOut}
+	/>
 
-		<div class="flex rounded-lg border border-line bg-[#ece6de] p-0.5">
-			<button
-				type="button"
-				class="rounded-[6px] px-2.5 py-1 text-[11px] font-medium transition-colors {scope === 'open'
-					? 'bg-paper text-ink shadow-sm'
-					: 'text-muted hover:text-ink'}"
-				onclick={() => (scope = 'open')}
+	<div class="relative h-full">
+		{#key layoutRevision}
+			<SvelteFlowProvider>
+				<BoardCanvas
+					bind:this={canvas}
+					bind:nodes
+					bind:edges
+					highlightNodeId={selectedNumber}
+					onissueclick={handleIssueClick}
+					onpaneclick={closeDrawer}
+				/>
+			</SvelteFlowProvider>
+		{/key}
+
+		{#if loading}
+			<div
+				class="absolute inset-0 flex items-center justify-center bg-canvas/70 text-xs text-muted backdrop-blur-sm"
 			>
-				Open Only
-			</button>
-			<button
-				type="button"
-				class="rounded-[6px] px-2.5 py-1 text-[11px] font-medium transition-colors {scope === 'all'
-					? 'bg-paper text-ink shadow-sm'
-					: 'text-muted hover:text-ink'}"
-				onclick={() => (scope = 'all')}
-			>
-				Show All
-			</button>
-		</div>
-
-		<select
-			class="rounded-md border border-warm bg-paper px-2 py-1 text-[11px] text-ink shadow-sm focus:ring-2 focus:ring-brand/25 focus:outline-none"
-			aria-label="Milestone filter"
-			bind:value={milestone}
-			onchange={() => void rebuild()}
-		>
-			<option value="all">All milestones</option>
-			{#each options.milestones as option (option.value)}
-				<option value={option.value}>{option.label}</option>
-			{/each}
-		</select>
-
-		<select
-			class="rounded-md border border-warm bg-paper px-2 py-1 text-[11px] text-ink shadow-sm focus:ring-2 focus:ring-brand/25 focus:outline-none"
-			aria-label="Assignee filter"
-			bind:value={assignee}
-			onchange={() => void rebuild()}
-		>
-			<option value="all">All assignees</option>
-			{#each options.assignees as option (option.value)}
-				<option value={option.value}>{option.label}</option>
-			{/each}
-		</select>
-
-		<label class="flex items-center gap-1.5 text-xs text-muted">
-			<input
-				type="checkbox"
-				class="accent-brand"
-				bind:checked={hasOpenPR}
-				onchange={() => void rebuild()}
-			/>
-			Has open PR
-		</label>
-
-		<button
-			type="button"
-			class="rounded-md border border-warm bg-paper px-2.5 py-1 text-[11px] font-medium text-ink shadow-sm transition-[background-color,transform] hover:bg-canvas active:scale-[0.98]"
-			onclick={() => void rebuild()}
-		>
-			Auto-Layout
-		</button>
-
-		{#if counts}
-			<span class="ml-auto font-mono text-[10px] text-quiet">
-				{counts.issues} issues · {counts.edges} edges · {counts.chains} chains
-			</span>
+				{progress || 'Loading…'}
+			</div>
 		{/if}
 
-		<div class="ml-auto">
-			<AuthControls next={authNext} showPrivateChoice onsignout={handleSignOut} />
-		</div>
-	</header>
-
-	{#if data && data.meta.warnings.length > 0}
-		<details class="border-b border-[#f0d3ba] bg-[#ffcea5]/20 px-4 py-1 text-xs text-[#7a4a2a]">
-			<summary class="cursor-pointer font-medium">data notes ({data.meta.warnings.length})</summary>
-			<ul class="mt-1 flex list-disc flex-col gap-0.5 pl-5">
-				{#each data.meta.warnings as warning, index (index)}
-					<li>{warning}</li>
-				{/each}
-			</ul>
-		</details>
-	{/if}
-
-	<div class="flex min-h-0 flex-1">
-		<div class="relative min-h-0 flex-1">
-			{#key layoutRevision}
-				<SvelteFlowProvider>
-					<BoardCanvas
-						bind:this={canvas}
-						bind:nodes
-						bind:edges
-						highlightNodeId={selectedNumber}
-						onissueclick={handleIssueClick}
-						onpaneclick={closeDrawer}
-					/>
-				</SvelteFlowProvider>
-			{/key}
-
-			{#if loading}
-				<div
-					class="absolute inset-0 flex items-center justify-center bg-canvas/70 text-xs text-muted backdrop-blur-sm"
+		{#if error}
+			<div
+				class="board-alert absolute top-4 right-4 left-[84px] rounded-xl border border-alert/25 bg-paper p-3 text-sm text-[#a9272a] shadow-sm"
+			>
+				<p>{error}</p>
+				<button
+					type="button"
+					class="mt-2 rounded-md border border-alert/25 px-2 py-1 text-xs text-[#a9272a] hover:bg-[#fff2f1]"
+					onclick={() => void load(scope)}
 				>
-					{progress || 'Loading…'}
-				</div>
-			{/if}
+					Retry
+				</button>
+			</div>
+		{/if}
 
-			{#if error}
-				<div
-					class="absolute inset-x-4 top-4 rounded-xl border border-alert/25 bg-paper p-3 text-sm text-[#a9272a] shadow-sm"
-				>
-					<p>{error}</p>
-					<button
-						type="button"
-						class="mt-2 rounded-md border border-alert/25 px-2 py-1 text-xs text-[#a9272a] hover:bg-[#fff2f1]"
-						onclick={() => void load(scope)}
-					>
-						Retry
-					</button>
-				</div>
-			{/if}
+		{#if !loading && counts && counts.issues === 0}
+			<div
+				class="board-hint-bottom absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-warm bg-paper px-3 py-2 text-xs text-muted shadow-sm"
+			>
+				No issues match the current filters.
+			</div>
+		{/if}
 
-			{#if !loading && counts && counts.issues === 0}
-				<div
-					class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-warm bg-paper px-3 py-2 text-xs text-muted shadow-sm"
-				>
-					No issues match the current filters.
-				</div>
-			{/if}
-
-			{#if !loading && !error && counts && counts.edges === 0}
-				<div
-					class="absolute top-4 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-warm bg-paper/95 px-3 py-2 text-center text-xs text-muted shadow-sm"
-				>
-					No native blocking relationships in this view. Dependencies come from GitHub's issue
-					Relationships attribute only.
-				</div>
-			{/if}
-		</div>
+		{#if !loading && !error && counts && counts.edges === 0}
+			<div
+				class="board-hint-top absolute top-4 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-warm bg-paper/95 px-3 py-2 text-center text-xs text-muted shadow-sm"
+			>
+				No native blocking relationships in this view. Dependencies come from GitHub's issue
+				Relationships attribute only.
+			</div>
+		{/if}
 	</div>
 
 	<IssueDrawer issue={drawerIssue} {data} open={drawerOpen} onclose={closeDrawer} />

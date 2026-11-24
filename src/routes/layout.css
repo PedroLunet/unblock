@@ -102,6 +102,65 @@ a,
 	border-radius: 10px;
 }
 
+/* The floating rail overlays the left edge of the canvas. Keep Svelte Flow's
+   top-left legend and bottom-left zoom controls clear of the collapsed rail. */
+.board-surface .svelte-flow__panel.top.left,
+.board-surface .svelte-flow__panel.bottom.left {
+	margin-left: 84px;
+}
+
+/* Edge-to-edge layout on phones: keep canvas chrome out of the notch and
+   home-indicator zones. */
+.board-surface .svelte-flow__panel.top.left {
+	margin-top: calc(15px + env(safe-area-inset-top, 0px));
+}
+
+.board-surface .svelte-flow__panel.bottom.left,
+.board-surface .svelte-flow__panel.bottom.right {
+	margin-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
+}
+
+.board-surface .svelte-flow__panel.bottom.right {
+	margin-right: calc(15px + env(safe-area-inset-right, 0px));
+}
+
+/* Floating board notices clear the side rail on desktop and the top bar on
+   compact layouts. */
+.board-alert {
+	top: max(1rem, calc(env(safe-area-inset-top, 0px) + 0.5rem));
+	right: max(1rem, env(safe-area-inset-right, 0px));
+	left: max(84px, calc(env(safe-area-inset-left, 0px) + 72px));
+}
+
+.board-hint-top {
+	top: max(1rem, calc(env(safe-area-inset-top, 0px) + 0.5rem));
+}
+
+.board-hint-bottom {
+	bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));
+}
+
+@media (max-width: 767px), (max-height: 540px) {
+	.board-surface .svelte-flow__panel.top.left,
+	.board-surface .svelte-flow__panel.bottom.left {
+		margin-left: calc(15px + env(safe-area-inset-left, 0px));
+	}
+
+	.board-surface .svelte-flow__panel.top.left {
+		margin-top: calc(max(12px, env(safe-area-inset-top, 0px)) + 72px);
+	}
+
+	.board-alert {
+		top: calc(max(12px, env(safe-area-inset-top, 0px)) + 72px);
+		right: max(1rem, env(safe-area-inset-right, 0px));
+		left: max(1rem, env(safe-area-inset-left, 0px));
+	}
+
+	.board-hint-top {
+		top: calc(max(12px, env(safe-area-inset-top, 0px)) + 72px);
+	}
+}
+
 .svelte-flow__controls-button {
 	border-bottom-color: var(--color-line);
 	color: var(--color-muted);

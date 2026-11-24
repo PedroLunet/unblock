@@ -124,7 +124,7 @@
 	});
 </script>
 
-<div class="h-full w-full">
+<div class="board-surface h-full w-full">
 	<SvelteFlow
 		bind:nodes
 		edges={displayEdges}
