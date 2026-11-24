@@ -5,7 +5,7 @@
 	import '@fontsource/dm-mono/latin-400.css';
 	import '@fontsource/dm-mono/latin-500.css';
 	import './layout.css';
-	import favicon from '#lib/assets/favicon.svg';
+	import logo from '#lib/assets/unblock-logo.svg';
 	import { session } from '#lib/auth/session.svelte.ts';
 	import { clearLegacyPat } from '#lib/github/storage.ts';
 	import type { LayoutProps } from './$types';
@@ -19,7 +19,7 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" href={logo} />
 </svelte:head>
 
 {@render children()}

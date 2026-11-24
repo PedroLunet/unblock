@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import AuthControls from '#lib/auth/AuthControls.svelte';
+	import logo from '#lib/assets/unblock-logo.svg';
 	import { parseRepoInput } from '#lib/github';
 	import type { FetchScope } from '#lib/github';
 
@@ -24,12 +25,15 @@
 </script>
 
 <div class="mx-auto max-w-2xl px-4 py-12">
-	<header class="flex flex-col gap-1.5">
-		<h1 class="text-xl font-semibold tracking-[-0.02em] text-ink">unblock</h1>
-		<p class="text-sm text-muted">GitHub issue &amp; dependency board</p>
-		<p class="text-xs leading-relaxed text-quiet">
-			Paste a public repository, or sign in with GitHub for private repos and higher rate limits.
-		</p>
+	<header class="flex items-start gap-3">
+		<img src={logo} alt="" width="40" height="40" class="h-10 w-10 shrink-0" />
+		<div class="flex flex-col gap-1.5">
+			<h1 class="text-xl font-semibold tracking-[-0.02em] text-ink">unblock</h1>
+			<p class="text-sm text-muted">GitHub issue &amp; dependency board</p>
+			<p class="text-xs leading-relaxed text-quiet">
+				Paste a public repository, or sign in with GitHub for private repos and higher rate limits.
+			</p>
+		</div>
 	</header>
 
 	<div class="mt-8 rounded-xl border border-warm bg-paper p-4 shadow-sm">
