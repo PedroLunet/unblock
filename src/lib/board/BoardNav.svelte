@@ -553,6 +553,64 @@
 						</span>
 					</button>
 				</div>
+
+				<div class="rail-group rail-mobile-extras">
+					<button
+						type="button"
+						class="rail-item"
+						class:is-open={menu === 'stats'}
+						aria-haspopup="dialog"
+						aria-expanded={menu === 'stats'}
+						aria-label={`Board data. ${statsValue}`}
+						data-tip={`Board data · ${statsValue}`}
+						onclick={(event) => toggleMenu('stats', event.currentTarget)}
+					>
+						<span class="rail-icon">
+							<Icon name="chart" />
+							{#if warnings.length > 0}
+								<span class="rail-dot is-warning is-on"></span>
+							{/if}
+						</span>
+						<span class="rail-copy" aria-hidden={!expanded}>
+							<span class="rail-label">Board data</span>
+							<span class="rail-value">{statsValue}</span>
+						</span>
+						<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
+					</button>
+
+					<button
+						type="button"
+						class="rail-item"
+						class:is-open={menu === 'account'}
+						aria-haspopup="dialog"
+						aria-expanded={menu === 'account'}
+						aria-label={`GitHub account. ${accountValue}`}
+						data-tip={`GitHub account · ${accountValue}`}
+						onclick={(event) => toggleMenu('account', event.currentTarget)}
+					>
+						{#if session.loading}
+							<span class="rail-icon">
+								<span class="avatar-skeleton" aria-hidden="true"></span>
+							</span>
+						{:else if session.user?.avatarUrl}
+							<img
+								class="rail-avatar"
+								src={session.user.avatarUrl}
+								alt=""
+								referrerpolicy="no-referrer"
+							/>
+						{:else}
+							<span class="rail-icon">
+								<Icon name="user" />
+							</span>
+						{/if}
+						<span class="rail-copy" aria-hidden={!expanded}>
+							<span class="rail-label">Account</span>
+							<span class="rail-value">{accountValue}</span>
+						</span>
+						<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -931,6 +989,10 @@
 		display: flex;
 		flex: none;
 		flex-direction: column;
+	}
+
+	.rail-mobile-extras {
+		display: none;
 	}
 
 	.rail-foot {
@@ -1851,6 +1913,19 @@
 				radial-gradient(140% 160% at 50% 0%, rgb(255 253 250 / 0.08), transparent 60%),
 				linear-gradient(180deg, var(--rail-dark-lift) 0%, var(--rail-dark-deep) 90%);
 			box-shadow: inset 0 1px 0 rgb(255 253 250 / 0.1);
+		}
+
+		/* The bar keeps only the menu toggle; the secondary controls live in
+		   the panel that opens below it. */
+		.rail-foot > .rail-item:not(:last-child) {
+			display: none;
+		}
+
+		.rail-mobile-extras {
+			display: flex;
+			margin-top: 4px;
+			padding-top: 4px;
+			border-top: 1px solid color-mix(in oklab, var(--color-line) 78%, transparent);
 		}
 
 		/* The bar is horizontal and the controls drop down, so turn the panel
