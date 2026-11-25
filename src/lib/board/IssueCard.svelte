@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { IssueRecord, LinkedPR } from '#lib/github';
+	import type { IssueRecord, IterationInfo, LinkedPR } from '#lib/github';
+	import { iterationRangeLabel, iterationStatusLabel } from '#lib/github';
 	import {
 		BADGES_HEIGHT,
 		CARD_BORDER,
@@ -19,10 +20,22 @@
 		openBlockers?: number;
 		/** Closed blockers that are not visible on the canvas (open-only mode). */
 		resolvedBlockers?: number;
+		/** Primary project iteration shown when the board is not filtered by one. */
+		iteration?: IterationInfo | null;
+		iterationCount?: number;
+		showIteration?: boolean;
 		selected?: boolean;
 	}
 
-	let { issue, openBlockers = 0, resolvedBlockers = 0, selected = false }: Props = $props();
+	let {
+		issue,
+		openBlockers = 0,
+		resolvedBlockers = 0,
+		iteration = null,
+		iterationCount = 0,
+		showIteration = true,
+		selected = false
+	}: Props = $props();
 
 	let labels = $derived(issue.labels.slice(0, 2));
 	let extraLabels = $derived(issue.labels.length - labels.length);
@@ -34,6 +47,14 @@
 
 	let rows = $derived(cardRows(issue));
 	let titleLines = $derived(rows.titleLines);
+	let iterationRange = $derived(iteration ? iterationRangeLabel(iteration) : '');
+	let iterationTooltip = $derived(
+		iteration
+			? `Iteration: ${iteration.title}${iterationRange ? ` · ${iterationRange}` : ''} · ${iterationStatusLabel(iteration)}` +
+					`${iteration.projectTitle ? ` · ${iteration.projectTitle}` : ''}` +
+					`${iterationCount > 1 ? ` · ${iterationCount} iterations` : ''}`
+			: ''
+	);
 	let daysAgo = $derived(
 		Math.max(0, Math.floor((Date.now() - new Date(issue.updatedAt).getTime()) / 86400000))
 	);
@@ -84,7 +105,7 @@
 
 <div
 	class={[
-		'issue-card relative flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-paper text-ink',
+		'issue-card relative flex h-full w-full flex-col rounded-2xl border bg-paper text-ink',
 		{ 'issue-card-selected': selected }
 	]}
 	data-tone={tone}
@@ -326,6 +347,32 @@
 			{/if}
 		</div>
 	{/if}
+
+	{#if showIteration && iteration}
+		<span class="iteration-sticker" title={iterationTooltip}>
+			<svg
+				width="9"
+				height="9"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2.2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<path d="m17 2 4 4-4 4" />
+				<path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+				<path d="m7 22-4-4 4-4" />
+				<path d="M21 13v1a4 4 0 0 1-4 4H3" />
+			</svg>
+			<span class="sr-only">Iteration: </span>
+			<span class="iteration-sticker-title">{iteration.title}</span>
+			{#if iterationCount > 1}
+				<span class="iteration-sticker-count">+{iterationCount - 1}</span>
+			{/if}
+		</span>
+	{/if}
 </div>
 
 <style>
@@ -430,6 +477,51 @@
 		font-variant-numeric: tabular-nums;
 		letter-spacing: 0;
 		line-height: 1;
+	}
+
+	.iteration-sticker {
+		position: absolute;
+		top: -8px;
+		right: -5px;
+		z-index: 2;
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+		max-width: min(160px, calc(100% - 26px));
+		height: 18px;
+		padding: 0 6px;
+		border: 1px solid color-mix(in oklab, var(--color-chip-line) 72%, var(--color-quiet));
+		border-radius: 5px;
+		background: var(--color-chip);
+		box-shadow:
+			0 2px 5px -2px rgb(16 16 16 / 0.28),
+			0 1px 0 rgb(255 255 255 / 0.65) inset;
+		color: var(--color-muted);
+		font-family: var(--font-mono);
+		font-size: 8.5px;
+		font-weight: 500;
+		letter-spacing: 0.04em;
+		line-height: 1;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+
+	.iteration-sticker svg {
+		flex: none;
+		color: var(--color-brand-strong);
+	}
+
+	.iteration-sticker-title {
+		overflow: hidden;
+		min-width: 0;
+		text-overflow: ellipsis;
+	}
+
+	.iteration-sticker-count {
+		flex: none;
+		color: var(--color-quiet);
+		font-size: 8px;
+		letter-spacing: 0;
 	}
 
 	@media (prefers-reduced-motion: reduce) {

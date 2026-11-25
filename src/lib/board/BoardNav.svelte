@@ -8,20 +8,23 @@
 	import AuthControls from '#lib/auth/AuthControls.svelte';
 	import { session } from '#lib/auth/session.svelte.ts';
 	import mark from '#lib/assets/unblock-mark.svg';
+	import { NO_ITERATION } from '#lib/board/graph.ts';
 	import type { BoardCounts, FilterOptions } from '#lib/board/graph.ts';
-	import type { FetchScope } from '#lib/github';
+	import type { FetchScope, ProjectIterations } from '#lib/github';
 	import Icon from '#lib/ui/Icon.svelte';
 
-	type MenuId = 'scope' | 'milestone' | 'assignee' | 'stats' | 'account';
+	type MenuId = 'scope' | 'milestone' | 'iteration' | 'assignee' | 'stats' | 'account';
 
 	interface Props {
 		owner: string;
 		repo: string;
 		scope: FetchScope;
 		milestone: string;
+		iteration: string;
 		assignee: string;
 		hasOpenPR: boolean;
 		options: FilterOptions;
+		projectIterations: ProjectIterations;
 		counts: BoardCounts | null;
 		warnings: string[];
 		loading: boolean;
@@ -31,6 +34,7 @@
 		authNext: string;
 		onscopechange: (scope: FetchScope) => void;
 		onmilestonechange: (value: string) => void;
+		oniterationchange: (value: string) => void;
 		onassigneechange: (value: string) => void;
 		onhasprchange: (value: boolean) => void;
 		onrefresh: () => void;
@@ -42,9 +46,11 @@
 		repo,
 		scope,
 		milestone,
+		iteration,
 		assignee,
 		hasOpenPR,
 		options,
+		projectIterations,
 		counts,
 		warnings,
 		loading,
@@ -54,6 +60,7 @@
 		authNext,
 		onscopechange,
 		onmilestonechange,
+		oniterationchange,
 		onassigneechange,
 		onhasprchange,
 		onrefresh,
@@ -138,7 +145,16 @@
 
 	let scopeValue = $derived(scope === 'open' ? 'Open only' : 'All issues');
 	let milestoneValue = $derived(labelFor(milestone, options.milestones, 'All milestones'));
+	let iterationValue = $derived.by(() => {
+		if (iteration === 'all') return 'All iterations';
+		return (
+			options.iterations.find((option) => option.value === iteration)?.label ?? 'Unknown iteration'
+		);
+	});
 	let assigneeValue = $derived(labelFor(assignee, options.assignees, 'All assignees'));
+	let hasIterationOptions = $derived(
+		options.iterations.some((option) => option.value !== NO_ITERATION)
+	);
 	let statsValue = $derived(
 		loading
 			? progress || 'Loading repository…'
@@ -169,7 +185,11 @@
 		}`;
 	});
 	let filtersActive = $derived(
-		scope !== 'open' || milestone !== 'all' || assignee !== 'all' || hasOpenPR
+		scope !== 'open' ||
+			milestone !== 'all' ||
+			iteration !== 'all' ||
+			assignee !== 'all' ||
+			hasOpenPR
 	);
 	let menuTitle = $derived.by(() => {
 		switch (shownMenu) {
@@ -177,6 +197,8 @@
 				return 'Scope';
 			case 'milestone':
 				return 'Milestone';
+			case 'iteration':
+				return 'Iteration';
 			case 'assignee':
 				return 'Assignee';
 			case 'stats':
@@ -263,6 +285,11 @@
 
 	function chooseMilestone(value: string): void {
 		onmilestonechange(value);
+		closeMenu();
+	}
+
+	function chooseIteration(value: string): void {
+		oniterationchange(value);
 		closeMenu();
 	}
 
@@ -478,6 +505,27 @@
 						<span class="rail-copy" aria-hidden={!expanded}>
 							<span class="rail-label">Milestone</span>
 							<span class="rail-value">{milestoneValue}</span>
+						</span>
+						<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
+					</button>
+
+					<button
+						type="button"
+						class="rail-item"
+						class:is-open={menu === 'iteration'}
+						aria-haspopup="dialog"
+						aria-expanded={menu === 'iteration'}
+						aria-label={`Iteration: ${iterationValue}. Change iteration filter`}
+						data-tip={`Iteration · ${iterationValue}`}
+						onclick={(event) => toggleMenu('iteration', event.currentTarget)}
+					>
+						<span class="rail-icon">
+							<Icon name="iteration" />
+							<span class="rail-dot" class:is-on={iteration !== 'all'}></span>
+						</span>
+						<span class="rail-copy" aria-hidden={!expanded}>
+							<span class="rail-label">Iteration</span>
+							<span class="rail-value">{iterationValue}</span>
 						</span>
 						<span class="rail-trailing"><Icon name="chevron-right" size={14} /></span>
 					</button>
@@ -830,6 +878,84 @@
 						</button>
 					{/each}
 				</div>
+			{:else if shownMenu === 'iteration'}
+				{#if projectIterations === 'no-access'}
+					<div class="menu-list">
+						<p class="menu-note">
+							Iterations come from GitHub Projects (v2) and need read access to your projects.
+						</p>
+						{#if session.user}
+							<form method="GET" action={resolve('/auth/github/start')}>
+								<input type="hidden" name="next" value={authNext} />
+								<input type="hidden" name="projects" value="1" />
+								<button type="submit" class="menu-option">
+									<span class="option-copy">
+										<span class="option-label">Enable iterations</span>
+										<span class="option-hint">Read-only access to GitHub Projects</span>
+									</span>
+								</button>
+							</form>
+						{:else if session.configured && !session.loading}
+							<form method="GET" action={resolve('/auth/github/start')}>
+								<input type="hidden" name="next" value={authNext} />
+								<input type="hidden" name="projects" value="1" />
+								<button type="submit" class="menu-option">
+									<span class="option-copy">
+										<span class="option-label">Sign in to see iterations</span>
+										<span class="option-hint">Needs read access to GitHub Projects</span>
+									</span>
+								</button>
+							</form>
+						{:else if session.loading}
+							<p class="menu-note">Checking GitHub session…</p>
+						{:else}
+							<p class="menu-note">GitHub sign-in is not configured on this deployment.</p>
+						{/if}
+					</div>
+				{:else if projectIterations === 'unavailable'}
+					<div class="menu-body">
+						<p class="menu-note">
+							Iteration data could not be read from GitHub Projects. Refresh the board to retry.
+						</p>
+					</div>
+				{:else}
+					<div class="menu-list" role="group" aria-label="Iteration filter">
+						<button
+							type="button"
+							class="menu-option"
+							aria-pressed={iteration === 'all'}
+							onclick={() => chooseIteration('all')}
+						>
+							<span class="option-copy">
+								<span class="option-label">All iterations</span>
+							</span>
+							{#if iteration === 'all'}
+								<span class="option-check"><Icon name="check" size={14} /></span>
+							{/if}
+						</button>
+						{#each options.iterations as option (option.value)}
+							<button
+								type="button"
+								class="menu-option"
+								aria-pressed={iteration === option.value}
+								onclick={() => chooseIteration(option.value)}
+							>
+								<span class="option-copy">
+									<span class="option-label">{option.label}</span>
+									{#if option.hint}
+										<span class="option-hint">{option.hint}</span>
+									{/if}
+								</span>
+								{#if iteration === option.value}
+									<span class="option-check"><Icon name="check" size={14} /></span>
+								{/if}
+							</button>
+						{/each}
+						{#if !hasIterationOptions}
+							<p class="menu-note">No iteration values found in this repository's projects.</p>
+						{/if}
+					</div>
+				{/if}
 			{:else if shownMenu === 'assignee'}
 				<div class="menu-list" role="group" aria-label="Assignee filter">
 					<button

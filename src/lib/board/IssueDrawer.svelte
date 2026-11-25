@@ -1,6 +1,14 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { GithubError, resolveRef, updateIssue } from '#lib/github';
+	import {
+		GithubError,
+		iterationKey,
+		iterationRangeLabel,
+		iterationStatusLabel,
+		resolveRef,
+		uniqueIterations,
+		updateIssue
+	} from '#lib/github';
 	import type { DependencyRef, IssueRecord, IssueUpdate, LinkedPR, RepoData } from '#lib/github';
 	import { cleanNext } from '#lib/auth/next.ts';
 	import { canWriteIssues, session } from '#lib/auth/session.svelte.ts';
@@ -152,6 +160,19 @@
 				by <span class="text-muted">{issue.author ? `@${issue.author}` : 'unknown'}</span>
 				· opened {daysAgo(issue.createdAt)}d ago · updated {daysAgo(issue.updatedAt)}d ago
 			</p>
+			{#each uniqueIterations(issue.iterations) as iteration (iterationKey(iteration))}
+				<p class="font-mono text-[10px] leading-4 text-quiet">
+					iteration
+					<span class="text-muted">{iteration.title}</span>
+					{#if iterationRangeLabel(iteration)}
+						· {iterationRangeLabel(iteration)}
+					{/if}
+					· {iterationStatusLabel(iteration)}
+					{#if iteration.projectTitle}
+						· {iteration.projectTitle}
+					{/if}
+				</p>
+			{/each}
 		</div>
 	{/if}
 {/snippet}

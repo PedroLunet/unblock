@@ -16,6 +16,9 @@
 		issue={data.issue}
 		openBlockers={data.openBlockers}
 		resolvedBlockers={data.resolvedBlockers}
+		iteration={data.iteration}
+		iterationCount={data.iterationCount}
+		showIteration={data.showIteration}
 		{selected}
 	/>
 </div>

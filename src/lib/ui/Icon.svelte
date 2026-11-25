@@ -3,6 +3,7 @@
 		| 'github'
 		| 'circle-dot'
 		| 'flag'
+		| 'iteration'
 		| 'user'
 		| 'git-pull-request'
 		| 'refresh'
@@ -59,6 +60,11 @@
 		{:else if name === 'flag'}
 			<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
 			<line x1="4" x2="4" y1="22" y2="15" />
+		{:else if name === 'iteration'}
+			<path d="m17 2 4 4-4 4" />
+			<path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+			<path d="m7 22-4-4 4-4" />
+			<path d="M21 13v1a4 4 0 0 1-4 4H3" />
 		{:else if name === 'user'}
 			<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
 			<circle cx="12" cy="7" r="4" />

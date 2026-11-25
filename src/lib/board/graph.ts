@@ -1,8 +1,15 @@
 import type { ElkNode } from 'elkjs/lib/elk-api';
 import { MarkerType } from '@xyflow/svelte';
 import type { Edge, Node } from '@xyflow/svelte';
-import { resolveRef } from '#lib/github';
-import type { DepEdge, IssueRecord, RepoData } from '#lib/github';
+import {
+	iterationKey,
+	iterationRangeLabel,
+	iterationStatus,
+	primaryIteration,
+	resolveRef,
+	uniqueIterations
+} from '#lib/github';
+import type { DepEdge, IssueRecord, IterationInfo, RepoData } from '#lib/github';
 import { CARD_WIDTH, cardRows, estimateCardHeight } from './card-metrics';
 import { FRAME_HEADER_HEIGHT } from './frame-metrics';
 
@@ -17,10 +24,12 @@ const BOARD_ASPECT = 1.4;
 
 export const NO_MILESTONE = '__none__';
 export const UNASSIGNED = '__unassigned__';
+export const NO_ITERATION = '__no_iteration__';
 
 export interface BoardFilters {
 	milestone: string; // 'all' | milestone title | NO_MILESTONE
 	assignee: string; // 'all' | login | UNASSIGNED
+	iteration: string; // 'all' | iteration key | NO_ITERATION
 	hasOpenPR: boolean;
 }
 
@@ -31,6 +40,10 @@ export interface IssueFlowData {
 	/** Closed-issue blockers that are not visible on the canvas (open-only mode). */
 	resolvedBlockers: number;
 	hasOpenPR: boolean;
+	/** The iteration shown on the card when the board is not filtered by one. */
+	iteration: IterationInfo | null;
+	iterationCount: number;
+	showIteration: boolean;
 	[key: string]: unknown;
 }
 
@@ -60,6 +73,7 @@ export interface BoardModel {
 export interface FilterOptions {
 	milestones: { value: string; label: string }[];
 	assignees: { value: string; label: string }[];
+	iterations: { value: string; label: string; hint: string }[];
 }
 
 /** Dropdown options derived from the loaded dataset. */
@@ -68,11 +82,18 @@ export function filterOptions(data: RepoData): FilterOptions {
 	let hasUnmilestoned = false;
 	const logins = new Set<string>();
 	let hasUnassigned = false;
+	const iterations = new Map<string, IterationInfo>();
+	let hasNoIteration = false;
 	for (const issue of data.issues) {
 		if (issue.milestone) milestoneTitles.add(issue.milestone.title);
 		else hasUnmilestoned = true;
 		if (issue.assignees.length === 0) hasUnassigned = true;
 		for (const user of issue.assignees) logins.add(user.login);
+		if (issue.iterations.length === 0) hasNoIteration = true;
+		for (const iteration of uniqueIterations(issue.iterations)) {
+			const key = iterationKey(iteration);
+			if (!iterations.has(key)) iterations.set(key, iteration);
+		}
 	}
 	return {
 		milestones: [
@@ -82,6 +103,29 @@ export function filterOptions(data: RepoData): FilterOptions {
 		assignees: [
 			...[...logins].sort().map((login) => ({ value: login, label: login })),
 			...(hasUnassigned ? [{ value: UNASSIGNED, label: 'Unassigned' }] : [])
+		],
+		iterations: [
+			// The active sprint first, then the next scheduled, then history.
+			...[...iterations.entries()]
+				.sort((a, b) => {
+					const rank = (iteration: IterationInfo) => {
+						const status = iterationStatus(iteration);
+						return status === 'active' ? 0 : status === 'upcoming' ? 1 : 2;
+					};
+					const rankDiff = rank(a[1]) - rank(b[1]);
+					if (rankDiff !== 0) return rankDiff;
+					const chronological = a[1].startDate.localeCompare(b[1].startDate);
+					return iterationStatus(a[1]) === 'upcoming' ? chronological : -chronological;
+				})
+				.map(([value, iteration]) => ({
+					value,
+					label: iteration.title,
+					hint:
+						iterationStatus(iteration) === 'active'
+							? `${iterationRangeLabel(iteration)} · active`
+							: iterationRangeLabel(iteration)
+				})),
+			...(hasNoIteration ? [{ value: NO_ITERATION, label: 'No iteration', hint: '' }] : [])
 		]
 	};
 }
@@ -95,6 +139,15 @@ function passesFilters(issue: IssueRecord, filters: BoardFilters): boolean {
 		if (filters.assignee === UNASSIGNED) {
 			if (issue.assignees.length > 0) return false;
 		} else if (!issue.assignees.some((user) => user.login === filters.assignee)) {
+			return false;
+		}
+	}
+	if (filters.iteration !== 'all') {
+		if (filters.iteration === NO_ITERATION) {
+			if (issue.iterations.length > 0) return false;
+		} else if (
+			!issue.iterations.some((iteration) => iterationKey(iteration) === filters.iteration)
+		) {
 			return false;
 		}
 	}
@@ -335,11 +388,15 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 			if (target.issue.state === 'open') openBlockers++;
 			else if (!visibleSet.has(target.issue.number)) resolvedBlockers++;
 		}
+		const iterations = uniqueIterations(issue.iterations);
 		return {
 			issue,
 			openBlockers,
 			resolvedBlockers,
-			hasOpenPR: issue.linkedPRs.some((pr) => pr.state === 'open')
+			hasOpenPR: issue.linkedPRs.some((pr) => pr.state === 'open'),
+			iteration: primaryIteration(iterations),
+			iterationCount: iterations.length,
+			showIteration: filters.iteration === 'all'
 		};
 	};
 

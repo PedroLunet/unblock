@@ -9,7 +9,7 @@
 	import BoardNav from '#lib/board/BoardNav.svelte';
 	import IssueDrawer from '#lib/board/IssueDrawer.svelte';
 	import RefreshNotice from '#lib/board/RefreshNotice.svelte';
-	import { session } from '#lib/auth/session.svelte.ts';
+	import { session, canReadProjects } from '#lib/auth/session.svelte.ts';
 	import {
 		GithubError,
 		buildSnapshot,
@@ -54,6 +54,7 @@
 	let error = $state<LoadError | null>(null);
 	let refreshNotice = $state<RefreshOutcome | null>(null);
 	let milestone = $state('all');
+	let iteration = $state('all');
 	let assignee = $state('all');
 	let hasOpenPR = $state(false);
 	let nodes = $state.raw<BoardNode[]>([]);
@@ -65,7 +66,10 @@
 	let layoutRevision = $state(0);
 	let canvas = $state<{ fitView: () => void } | null>(null);
 
-	let options = $derived(data ? filterOptions(data) : { milestones: [], assignees: [] });
+	let options = $derived(
+		data ? filterOptions(data) : { milestones: [], assignees: [], iterations: [] }
+	);
+	let projectIterations = $derived(data?.meta.projectIterations ?? 'no-access');
 	let authNext = $derived(page.url.pathname + page.url.search);
 
 	let requestId = 0;
@@ -80,9 +84,24 @@
 		return session.user ? 'github' : 'anonymous';
 	}
 
+	/** Projects v2 iterations need the `read:project` OAuth scope. */
+	function shouldLoadIterations(): boolean {
+		return session.user !== null && canReadProjects(session.user.scopes);
+	}
+
+	function cacheKeyFor(result: RepoData, auth: 'github' | 'anonymous'): string {
+		return repoCacheKey(
+			owner,
+			repo,
+			result.scope,
+			auth,
+			result.meta.projectIterations !== 'no-access'
+		);
+	}
+
 	/** Keep the compact diff baseline in localStorage with the full cache. */
 	function remember(result: RepoData, auth: 'github' | 'anonymous'): void {
-		writeSnapshot(repoCacheKey(owner, repo, result.scope, auth), buildSnapshot(result));
+		writeSnapshot(cacheKeyFor(result, auth), buildSnapshot(result));
 	}
 
 	/**
@@ -123,10 +142,12 @@
 			await session.ensure();
 			if (id !== requestId) return;
 			const auth = currentAuth();
+			const includeProjectIterations = shouldLoadIterations();
 			const result = await loadRepo(owner, repo, {
 				auth,
 				scope: targetScope,
 				refresh: false,
+				includeProjectIterations,
 				progress: (message) => {
 					if (id === requestId) progress = message;
 				}
@@ -161,12 +182,14 @@
 			await session.ensure();
 			if (id !== requestId) return;
 			const auth = currentAuth();
-			const key = repoCacheKey(owner, repo, targetScope, auth);
+			const includeProjectIterations = shouldLoadIterations();
+			const key = repoCacheKey(owner, repo, targetScope, auth, includeProjectIterations);
 			const before = previousData ? buildSnapshot(previousData) : readSnapshot(key);
 			const result = await loadRepo(owner, repo, {
 				auth,
 				scope: targetScope,
 				refresh: true,
+				includeProjectIterations,
 				progress: (message) => {
 					if (id === requestId) progress = message;
 				}
@@ -216,7 +239,7 @@
 	async function rebuild(): Promise<void> {
 		if (!data) return;
 		const id = ++rebuildId;
-		const model = await buildBoard(data, { milestone, assignee, hasOpenPR });
+		const model = await buildBoard(data, { milestone, assignee, iteration, hasOpenPR });
 		if (id !== rebuildId) return;
 		nodes = model.nodes;
 		edges = model.edges;
@@ -293,7 +316,7 @@
 		data = next;
 		drawerIssue = merged;
 		const auth = currentAuth();
-		const key = repoCacheKey(owner, repo, next.scope, auth);
+		const key = cacheKeyFor(next, auth);
 		writeSnapshot(key, buildSnapshot(next));
 		writeRepoCache(key, next);
 		clearOtherRepoEntries(owner, repo, auth, key);
@@ -322,6 +345,11 @@
 		void rebuild();
 	}
 
+	function changeIteration(value: string): void {
+		iteration = value;
+		void rebuild();
+	}
+
 	function changeAssignee(value: string): void {
 		assignee = value;
 		void rebuild();
@@ -341,11 +369,14 @@
 		onscopechange={changeScope}
 		{milestone}
 		onmilestonechange={changeMilestone}
+		{iteration}
+		oniterationchange={changeIteration}
 		{assignee}
 		onassigneechange={changeAssignee}
 		{hasOpenPR}
 		onhasprchange={changeHasOpenPR}
 		{options}
+		{projectIterations}
 		{counts}
 		warnings={data?.meta.warnings ?? []}
 		{loading}
