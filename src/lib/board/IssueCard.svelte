@@ -400,7 +400,7 @@
 	}
 
 	.issue-card-selected {
-		outline: 2px solid #101010;
+		outline: 1.5px solid color-mix(in srgb, var(--card-border) 65%, transparent);
 		outline-offset: 2px;
 	}
 
