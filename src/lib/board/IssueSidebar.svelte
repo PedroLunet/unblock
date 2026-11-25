@@ -171,7 +171,6 @@
 		if (!options && !loadingOptions) void loadOptions();
 		if (field === 'assignees') {
 			assigneeQuery = '';
-			assignable = options?.assignees ?? [];
 		}
 		if (field === 'labels') labelFilter = '';
 		await tick();
@@ -228,7 +227,6 @@
 			const loaded = await loadEditOptions(owner, repo);
 			if (id !== optionsRequest) return;
 			options = loaded;
-			assignable = loaded.assignees;
 		} catch (err) {
 			if (id !== optionsRequest) return;
 			optionsError = messageFor(err, 'Could not load assignees, labels and milestones.');
@@ -247,14 +245,16 @@
 
 	async function runAssigneeSearch(): Promise<void> {
 		const query = assigneeQuery.trim();
+		const id = ++searchRequest;
 		if (!query) {
-			assignable = options?.assignees ?? [];
+			searching = false;
+			assignable = [];
 			searchError = null;
 			return;
 		}
-		const id = ++searchRequest;
 		searching = true;
 		searchError = null;
+		assignable = [];
 		try {
 			const results = await searchAssignableUsers(owner, repo, query);
 			if (id !== searchRequest) return;
@@ -294,6 +294,19 @@
 
 	let assigneeChoices = $derived.by(() => {
 		const byId: Record<string, AssignableUser> = {};
+		const query = assigneeQuery.trim().toLowerCase();
+		// Narrow the people already loaded with the picker immediately, so the
+		// list stays useful while GitHub's search is in flight or unavailable.
+		for (const user of options?.assignees ?? []) {
+			if (
+				!query ||
+				user.login.toLowerCase().includes(query) ||
+				(user.name?.toLowerCase().includes(query) ?? false)
+			) {
+				byId[user.id] = user;
+			}
+		}
+		// Server results can include assignable people beyond the first 100.
 		for (const user of assignable) byId[user.id] = user;
 		// Keep current assignees visible while a search narrows the list.
 		for (const user of issue.assignees) {
@@ -575,7 +588,12 @@
 				oninput={queueAssigneeSearch}
 			/>
 			{#if searchError}
-				<p class="picker-error" role="alert">{searchError}</p>
+				<div class="picker-error-row" role="alert">
+					<span>{searchError}</span>
+					<button type="button" class="picker-retry" onclick={() => void runAssigneeSearch()}>
+						Retry
+					</button>
+				</div>
 			{:else if searching}
 				<p class="picker-note">Searching GitHub…</p>
 			{/if}
