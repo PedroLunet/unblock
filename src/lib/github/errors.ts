@@ -1,4 +1,5 @@
-export type GithubErrorKind = 'not-found' | 'auth' | 'rate-limit' | 'network' | 'unknown';
+export type GithubErrorKind =
+	'not-found' | 'auth' | 'rate-limit' | 'network' | 'unavailable' | 'unknown';
 
 export class GithubError extends Error {
 	readonly kind: GithubErrorKind;

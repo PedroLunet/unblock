@@ -13,7 +13,18 @@ interface GqlResponse<T> {
 	errors?: GqlErrorLike[];
 }
 
-async function gql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+// GitHub's GraphQL backend intermittently fails valid queries with an internal
+// error that carries a request ID meant for GitHub support. It usually succeeds
+// on a second attempt, so reads and idempotent edit mutations get one quiet retry.
+const INTERNAL_ERROR = /Something went wrong while executing your query/i;
+const MAX_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 300;
+
+function delay(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function gqlOnce<T>(query: string, variables: Record<string, unknown>): Promise<T> {
 	let res: Response;
 	try {
 		res = await fetch(GITHUB_GRAPHQL_PROXY, {
@@ -40,6 +51,13 @@ async function gql<T>(query: string, variables: Record<string, unknown>): Promis
 		);
 	}
 	if (!res.ok) {
+		if (res.status >= 500) {
+			throw new GithubError(
+				'unavailable',
+				'GitHub is having trouble right now. Try again in a moment.',
+				res.status
+			);
+		}
 		throw new GithubError(
 			'unknown',
 			`GitHub GraphQL error ${res.status} ${res.statusText}`,
@@ -49,6 +67,16 @@ async function gql<T>(query: string, variables: Record<string, unknown>): Promis
 	const json: GqlResponse<T> = await res.json();
 	if (json.errors?.length) {
 		const message = json.errors[0].message;
+		if (INTERNAL_ERROR.test(message)) {
+			// Keep the request ID in the console; it means nothing to someone
+			// trying to assign an issue.
+			console.warn(`GitHub GraphQL internal error: ${message}`);
+			throw new GithubError(
+				'unavailable',
+				'GitHub could not complete that request. This is usually temporary, so try again.',
+				502
+			);
+		}
 		const sentence = message.endsWith('.') ? message : `${message}.`;
 		const permissionHint = /not accessible|permission|scope|forbidden/i.test(message)
 			? ' You may not have permission to edit this issue, or your sign-in may be missing write access.'
@@ -59,6 +87,18 @@ async function gql<T>(query: string, variables: Record<string, unknown>): Promis
 		throw new GithubError('unknown', 'GitHub GraphQL returned no data.');
 	}
 	return json.data;
+}
+
+async function gql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+	for (let attempt = 1; ; attempt++) {
+		try {
+			return await gqlOnce<T>(query, variables);
+		} catch (err) {
+			const transient = err instanceof GithubError && err.kind === 'unavailable';
+			if (!transient || attempt >= MAX_ATTEMPTS) throw err;
+			await delay(RETRY_DELAY_MS);
+		}
+	}
 }
 
 // --- GraphQL payload shapes (only what we read) ---
