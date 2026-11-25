@@ -112,6 +112,12 @@ a,
 	--xy-handle-border-color: #fffdfa;
 }
 
+/* Dependency arrows end in a rounded cap; the arrowhead covers the tip. */
+.svelte-flow__edge-path {
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
 .svelte-flow__controls {
 	overflow: hidden;
 	border: 1px solid var(--color-line);

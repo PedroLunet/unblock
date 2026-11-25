@@ -4,7 +4,8 @@
 	import type { RoundedEdgeData } from './graph';
 
 	type Pt = { x: number; y: number };
-	const RADIUS = 7;
+	/** Matches the board chrome's 10px control radius and keeps elbows soft at focus zoom. */
+	const RADIUS = 10;
 
 	let { data, markerEnd, style }: EdgeProps = $props();
 
