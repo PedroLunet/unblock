@@ -1,16 +1,69 @@
 <script lang="ts">
-	import { resolveRef } from '#lib/github';
-	import type { DependencyRef, IssueRecord, LinkedPR, RepoData } from '#lib/github';
+	import { resolve } from '$app/paths';
+	import { GithubError, resolveRef, updateIssue } from '#lib/github';
+	import type { DependencyRef, IssueRecord, IssueUpdate, LinkedPR, RepoData } from '#lib/github';
+	import { cleanNext } from '#lib/auth/next.ts';
+	import { canWriteIssues, session } from '#lib/auth/session.svelte.ts';
 	import Drawer from '#lib/ui/Drawer.svelte';
+	import IssueSidebar from './IssueSidebar.svelte';
 
 	interface Props {
 		issue: IssueRecord | null;
 		data: RepoData | null;
 		open: boolean;
+		owner: string;
+		repo: string;
+		/** Current board URL, used as the post-sign-in destination. */
+		authNext: string;
 		onclose: () => void;
+		onupdated: (update: IssueUpdate) => void;
 	}
 
-	let { issue, data, open, onclose }: Props = $props();
+	let { issue, data, open, owner, repo, authNext, onclose, onupdated }: Props = $props();
+
+	interface StateChange {
+		number: number;
+		saving: boolean;
+		error: string | null;
+	}
+
+	let stateChange = $state<StateChange | null>(null);
+	let contentRoot = $state<HTMLElement | null>(null);
+
+	let canEdit = $derived(session.user !== null && canWriteIssues(session.user.scopes));
+	let authTarget = $derived(cleanNext(authNext));
+	let stateSaving = $derived(
+		stateChange !== null &&
+			issue !== null &&
+			stateChange.number === issue.number &&
+			stateChange.saving
+	);
+	let stateError = $derived(
+		stateChange !== null && issue !== null && stateChange.number === issue.number
+			? stateChange.error
+			: null
+	);
+
+	async function toggleState(): Promise<void> {
+		if (!issue || !canEdit || stateSaving) return;
+		const number = issue.number;
+		const next = issue.state === 'open' ? 'closed' : 'open';
+		stateChange = { number, saving: true, error: null };
+		try {
+			const update = await updateIssue(issue.id, { state: next });
+			stateChange = null;
+			onupdated(update);
+		} catch (err) {
+			stateChange = {
+				number,
+				saving: false,
+				error: err instanceof GithubError ? err.message : 'Could not update the issue on GitHub.'
+			};
+			if (err instanceof GithubError && err.kind === 'auth') void session.refresh();
+			const scroller = contentRoot?.parentElement;
+			if (scroller) scroller.scrollTop = 0;
+		}
+	}
 
 	interface ResolvedRefRow {
 		number: number;
@@ -57,23 +110,12 @@
 		return 'bg-quiet';
 	}
 
-	function labelStyle(color: string): string {
-		const safe = /^[0-9a-f]{6}$/i.test(color) ? color : 'd4d4d4';
-		return `--label-color: #${safe}`;
-	}
-
 	function daysAgo(iso: string): number {
 		return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
 	}
 
-	function hideBrokenAvatar(event: Event): void {
-		const image = event.currentTarget as HTMLImageElement | null;
-		if (image) image.hidden = true;
-	}
-
 	let blockedBy = $derived(issue && data ? resolveRows(data, issue.blockedBy) : []);
 	let blocks = $derived(issue && data ? resolveRows(data, issue.blocks) : []);
-	let contentRoot = $state<HTMLElement | null>(null);
 
 	$effect(() => {
 		const number = issue?.number;
@@ -116,6 +158,46 @@
 
 {#snippet actions()}
 	{#if issue}
+		{#if canEdit}
+			<button
+				type="button"
+				class="secondary-action"
+				disabled={stateSaving}
+				onclick={() => void toggleState()}
+			>
+				{stateSaving
+					? issue.state === 'open'
+						? 'Closing…'
+						: 'Reopening…'
+					: issue.state === 'open'
+						? 'Close issue'
+						: 'Reopen issue'}
+			</button>
+		{:else if session.user}
+			<form method="GET" action={resolve('/auth/github/start')} class="contents">
+				<input type="hidden" name="next" value={authTarget} />
+				<input type="hidden" name="write" value="1" />
+				<button
+					type="submit"
+					class="secondary-action"
+					title="Requests write access so unblock can edit issues"
+				>
+					Enable editing
+				</button>
+			</form>
+		{:else if session.configured && !session.loading}
+			<form method="GET" action={resolve('/auth/github/start')} class="contents">
+				<input type="hidden" name="next" value={authTarget} />
+				<input type="hidden" name="write" value="1" />
+				<button
+					type="submit"
+					class="secondary-action"
+					title="Sign in with write access to edit this issue"
+				>
+					Sign in to edit
+				</button>
+			</form>
+		{/if}
 		<a class="primary-action" href={issue.url} target="_blank" rel="external noreferrer">
 			Open on GitHub
 			<svg
@@ -145,109 +227,18 @@
 >
 	{#if issue && data}
 		<div bind:this={contentRoot} class="flex flex-col gap-4 text-sm text-ink">
-			<dl class="flex flex-col gap-2 text-[11.5px]">
-				<div class="flex gap-2">
-					<dt
-						class="w-20 shrink-0 font-mono text-[9px] leading-4 tracking-[0.08em] text-quiet uppercase"
-					>
-						assignees
-					</dt>
-					<dd class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-muted">
-						{#if issue.assignees.length === 0}
-							<span class="font-medium text-muted">Unassigned</span>
-						{:else}
-							{#each issue.assignees as assignee (assignee.login)}
-								<span class="flex items-center gap-1.5">
-									<span
-										class="relative h-[18px] w-[18px] shrink-0 overflow-hidden rounded-full bg-warm ring-2 ring-paper"
-									>
-										<span
-											class="absolute inset-0 flex items-center justify-center font-mono text-[8px] font-medium text-muted"
-											aria-hidden="true"
-										>
-											{assignee.login.slice(0, 1).toUpperCase()}
-										</span>
-										<img
-											src={assignee.avatarUrl}
-											alt=""
-											loading="lazy"
-											class="relative h-full w-full object-cover"
-											onerror={hideBrokenAvatar}
-										/>
-									</span>
-									<span>@{assignee.login}</span>
-								</span>
-							{/each}
-						{/if}
-					</dd>
-				</div>
-				<div class="flex gap-2">
-					<dt
-						class="w-20 shrink-0 font-mono text-[9px] leading-4 tracking-[0.08em] text-quiet uppercase"
-					>
-						milestone
-					</dt>
-					<dd class="min-w-0 text-muted">
-						{#if issue.milestone}
-							<span class="inline-flex items-center gap-1.5">
-								<svg
-									class="h-[11px] w-[11px] shrink-0 text-brand"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-								>
-									<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-									<line x1="4" x2="4" y1="22" y2="15" />
-								</svg>
-								{issue.milestone.title}
-							</span>
-						{:else}
-							—
-						{/if}
-					</dd>
-				</div>
-				<div class="flex gap-2">
-					<dt
-						class="w-20 shrink-0 font-mono text-[9px] leading-4 tracking-[0.08em] text-quiet uppercase"
-					>
-						labels
-					</dt>
-					<dd class="flex min-w-0 flex-wrap gap-1">
-						{#if issue.labels.length === 0}
-							<span class="text-quiet">—</span>
-						{:else}
-							{#each issue.labels as label (label.name)}
-								<span
-									class="inline-flex h-[19px] items-center gap-1 rounded-[5px] border border-chip-line bg-chip px-1.5 text-[10.5px] leading-none font-medium text-muted"
-									style={labelStyle(label.color)}
-									title={label.name}
-								>
-									<span class="label-dot h-[5px] w-[5px] shrink-0 rounded-full" aria-hidden="true"
-									></span>
-									{label.name}
-								</span>
-							{/each}
-						{/if}
-					</dd>
-				</div>
-				<div class="flex gap-2">
-					<dt
-						class="w-20 shrink-0 font-mono text-[9px] leading-4 tracking-[0.08em] text-quiet uppercase"
-					>
-						activity
-					</dt>
-					<dd class="min-w-0 font-mono text-[10px] leading-4 text-quiet">
-						reactions <span class="text-muted">
-							{issue.reactions ? issue.reactions.total : '?'}
-						</span>
-						· comments <span class="text-muted">{issue.comments}</span>
-					</dd>
-				</div>
-			</dl>
+			{#if stateError}
+				<p
+					class="rounded-lg border border-alert/25 bg-[#fff2f1] px-3 py-2 text-xs leading-relaxed text-[#a9272a]"
+					role="alert"
+				>
+					{stateError}
+				</p>
+			{/if}
+
+			{#key issue.number}
+				<IssueSidebar {issue} {owner} {repo} {canEdit} {open} {onupdated} />
+			{/key}
 
 			<section class="flex flex-col gap-1.5 text-[11.5px]">
 				<h2 class="font-mono text-[9px] font-medium tracking-[0.1em] text-quiet uppercase">
@@ -383,20 +374,64 @@
 		outline-offset: 2px;
 	}
 
-	.label-dot {
-		background: color-mix(in srgb, var(--label-color) 72%, var(--color-ink));
-		box-shadow: 0 0 0 1px rgb(16 16 16 / 0.06);
+	.primary-action:disabled {
+		cursor: default;
+		opacity: 0.55;
+	}
+
+	.secondary-action {
+		display: inline-flex;
+		height: 44px;
+		align-items: center;
+		gap: 6px;
+		padding: 0 12px;
+		border: 1px solid var(--color-warm);
+		border-radius: 8px;
+		background: var(--color-paper);
+		color: var(--color-ink);
+		font-family: inherit;
+		font-size: 12px;
+		font-weight: 600;
+		line-height: 1;
+		text-decoration: none;
+		cursor: pointer;
+		touch-action: manipulation;
+		transition:
+			background-color 120ms ease-out,
+			transform 100ms ease-out;
+	}
+
+	.secondary-action:active {
+		transform: scale(0.97);
+	}
+
+	.secondary-action:focus-visible {
+		outline: 2px solid var(--color-brand-strong);
+		outline-offset: 2px;
+	}
+
+	.secondary-action:disabled {
+		cursor: default;
+		opacity: 0.5;
 	}
 
 	@media (min-width: 1024px) {
 		.primary-action {
 			height: 32px;
 		}
+
+		.secondary-action {
+			height: 32px;
+		}
 	}
 
 	@media (hover: hover) and (pointer: fine) {
-		.primary-action:hover {
+		.primary-action:hover:not(:disabled) {
 			background: var(--color-brand-deep);
+		}
+
+		.secondary-action:hover:not(:disabled) {
+			background: var(--color-chip);
 		}
 	}
 
@@ -406,6 +441,14 @@
 		}
 
 		.primary-action:active {
+			transform: none;
+		}
+
+		.secondary-action {
+			transition: none;
+		}
+
+		.secondary-action:active {
 			transform: none;
 		}
 	}

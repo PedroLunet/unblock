@@ -13,14 +13,16 @@
 	import {
 		GithubError,
 		buildSnapshot,
+		clearOtherRepoEntries,
 		diffRepo,
 		loadRepo,
 		readSnapshot,
 		repoCacheKey,
+		writeRepoCache,
 		writeSnapshot
 	} from '#lib/github';
 	import { clearRepoCache } from '#lib/github/storage.ts';
-	import type { FetchScope, IssueRecord, RepoData, RepoDiff } from '#lib/github';
+	import type { FetchScope, IssueRecord, IssueUpdate, RepoData, RepoDiff } from '#lib/github';
 
 	interface PageParams {
 		owner: string;
@@ -260,6 +262,44 @@
 		selectedNumber = null;
 	}
 
+	/**
+	 * Fold a successful edit into the board without refetching. The mutated
+	 * fields come back from GitHub; dependency data is unaffected.
+	 */
+	function applyIssueUpdate(update: IssueUpdate): void {
+		if (!data) return;
+		const existing = findIssueIn(data, update.number);
+		if (!existing) return;
+
+		const merged: IssueRecord = { ...existing, ...update };
+		const belongsInScope = data.scope === 'all' || merged.state === 'open';
+		merged.inScope = belongsInScope;
+		let issues: IssueRecord[];
+		let referenced: IssueRecord[];
+
+		if (belongsInScope) {
+			issues = data.issues.some((issue) => issue.number === merged.number)
+				? data.issues.map((issue) => (issue.number === merged.number ? merged : issue))
+				: [...data.issues, merged];
+			referenced = data.referencedIssues.filter((issue) => issue.number !== merged.number);
+		} else {
+			issues = data.issues.filter((issue) => issue.number !== merged.number);
+			referenced = data.referencedIssues.some((issue) => issue.number === merged.number)
+				? data.referencedIssues.map((issue) => (issue.number === merged.number ? merged : issue))
+				: [...data.referencedIssues, merged];
+		}
+
+		const next: RepoData = { ...data, issues, referencedIssues: referenced };
+		data = next;
+		drawerIssue = merged;
+		const auth = currentAuth();
+		const key = repoCacheKey(owner, repo, next.scope, auth);
+		writeSnapshot(key, buildSnapshot(next));
+		writeRepoCache(key, next);
+		clearOtherRepoEntries(owner, repo, auth, key);
+		void rebuild();
+	}
+
 	async function handleSignOut(): Promise<void> {
 		rebuildId += 1;
 		data = null;
@@ -395,7 +435,16 @@
 		{/if}
 	</div>
 
-	<IssueDrawer issue={drawerIssue} {data} open={drawerOpen} onclose={closeDrawer} />
+	<IssueDrawer
+		issue={drawerIssue}
+		{data}
+		open={drawerOpen}
+		{owner}
+		{repo}
+		{authNext}
+		onclose={closeDrawer}
+		onupdated={applyIssueUpdate}
+	/>
 </div>
 
 <style>
