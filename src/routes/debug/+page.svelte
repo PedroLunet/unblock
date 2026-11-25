@@ -141,7 +141,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-5xl px-4 py-8">
+<div class="page-safe-x mx-auto max-w-5xl py-8">
 	<header class="mb-6">
 		<h1 class="text-lg font-bold text-neutral-900">unblock</h1>
 		<p class="text-sm text-neutral-600">GitHub issue &amp; dependency board — Step 1 data check</p>

@@ -24,14 +24,15 @@
 	}
 </script>
 
-<div class="mx-auto max-w-2xl px-4 py-12">
+<div class="page-safe-x mx-auto max-w-2xl py-12">
 	<header class="flex items-start gap-3">
 		<img src={logo} alt="" width="40" height="40" class="h-10 w-10 shrink-0" />
 		<div class="flex flex-col gap-1.5">
 			<h1 class="text-xl font-semibold tracking-[-0.02em] text-ink">unblock</h1>
 			<p class="text-sm text-muted">GitHub issue &amp; dependency board</p>
 			<p class="text-xs leading-relaxed text-quiet">
-				Paste a public repository, or sign in with GitHub for private repos and higher rate limits.
+				Paste a public repository, or sign in with GitHub for private repos, higher rate limits, and
+				issue editing.
 			</p>
 		</div>
 	</header>
@@ -40,9 +41,11 @@
 		<AuthControls next={authNext} showPrivateChoice showUnavailable />
 		<p class="mt-3 text-xs leading-relaxed text-quiet">
 			Public repositories work without signing in. Signing in raises the limit to 5,000
-			requests/hour and enables complete dependency data. Private repositories require GitHub's
-			broad <code class="font-mono text-[10px] text-muted">repo</code> scope (OAuth has no read-only private
-			scope).
+			requests/hour, enables complete dependency data, and lets you change assignees, labels,
+			milestones, and issue state without leaving the board. Editing needs GitHub's
+			<code class="font-mono text-[10px] text-muted">public_repo</code> scope (or
+			<code class="font-mono text-[10px] text-muted">repo</code> for private repositories); reads alone
+			request no scopes.
 		</p>
 	</div>
 
@@ -63,8 +66,14 @@
 			<input
 				id="repository"
 				type="text"
-				class="min-w-64 flex-1 rounded-md border border-warm bg-paper px-3 py-2 text-sm text-ink shadow-sm placeholder:text-quiet focus:ring-2 focus:ring-brand/25 focus:outline-none"
+				class="touch-target min-w-64 flex-1 rounded-md border border-warm bg-paper px-3 py-2 text-sm text-ink shadow-sm placeholder:text-quiet focus:ring-2 focus:ring-brand/25 focus:outline-none"
 				placeholder="github.com/owner/repo or owner/repo"
+				inputmode="url"
+				autocapitalize="none"
+				autocomplete="off"
+				autocorrect="off"
+				spellcheck="false"
+				enterkeyhint="go"
 				bind:value={repoInput}
 			/>
 			{#if parsedInput}
@@ -80,7 +89,7 @@
 			<div class="inline-flex rounded-lg border border-warm bg-[#ece6de] p-0.5 text-sm">
 				<button
 					type="button"
-					class="rounded-[6px] px-3 py-1.5 transition-colors {scope === 'open'
+					class="touch-target rounded-[6px] px-3 py-1.5 transition-colors {scope === 'open'
 						? 'bg-paper text-ink shadow-sm'
 						: 'text-muted hover:text-ink'}"
 					onclick={() => (scope = 'open')}
@@ -89,7 +98,7 @@
 				</button>
 				<button
 					type="button"
-					class="rounded-[6px] px-3 py-1.5 transition-colors {scope === 'all'
+					class="touch-target rounded-[6px] px-3 py-1.5 transition-colors {scope === 'all'
 						? 'bg-paper text-ink shadow-sm'
 						: 'text-muted hover:text-ink'}"
 					onclick={() => (scope = 'all')}
@@ -99,7 +108,7 @@
 			</div>
 			<button
 				type="submit"
-				class="rounded-md bg-brand-strong px-3.5 py-2 text-sm font-medium text-paper shadow-sm transition-[background-color,transform] hover:bg-brand-deep active:scale-[0.98] disabled:bg-warm disabled:text-quiet disabled:shadow-none"
+				class="touch-target rounded-md bg-brand-strong px-3.5 py-2 text-sm font-medium text-paper shadow-sm transition-[background-color,transform] hover:bg-brand-deep active:scale-[0.98] disabled:bg-warm disabled:text-quiet disabled:shadow-none"
 				disabled={!parsedInput}
 			>
 				Open board

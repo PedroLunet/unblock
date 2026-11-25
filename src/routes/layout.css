@@ -31,6 +31,7 @@
 html {
 	font-family: var(--font-sans);
 	font-optical-sizing: auto;
+	color-scheme: light;
 	background: var(--color-canvas);
 	color: var(--color-ink);
 	-webkit-text-size-adjust: 100%;
@@ -59,6 +60,20 @@ a,
 	textarea,
 	select {
 		font-size: 16px;
+	}
+}
+
+/* Keep document-style pages out of the landscape notch without changing
+   their existing vertical rhythm. */
+.page-safe-x {
+	padding-right: max(1rem, env(safe-area-inset-right, 0px));
+	padding-left: max(1rem, env(safe-area-inset-left, 0px));
+}
+
+/* Comfortable primary controls wherever the primary input is a finger. */
+@media (pointer: coarse) {
+	.touch-target {
+		min-height: 44px;
 	}
 }
 

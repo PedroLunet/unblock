@@ -155,3 +155,16 @@
 		<p class="text-xs text-[#a9272a]" role="alert">{authErrorMessage}</p>
 	{/if}
 </div>
+
+<style>
+	@media (pointer: coarse) {
+		/* Make the whole checkbox label a comfortable tap target. */
+		label {
+			min-height: 44px;
+		}
+
+		button {
+			min-height: 44px;
+		}
+	}
+</style>

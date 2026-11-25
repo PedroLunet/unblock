@@ -450,13 +450,13 @@
 		position: absolute;
 		/* Center with auto margins; individual `translate` is unreliable in
 		   some mobile Chromium builds and pushes the sheet off the right edge. */
-		right: 0;
+		right: max(10px, env(safe-area-inset-right, 0px));
 		bottom: 10px;
-		left: 0;
+		left: max(10px, env(safe-area-inset-left, 0px));
 		z-index: 1;
 		display: flex;
 		flex-direction: column;
-		width: calc(100% - 20px);
+		width: auto;
 		max-width: 560px;
 		margin-inline: auto;
 		max-height: min(85dvh, 760px);
