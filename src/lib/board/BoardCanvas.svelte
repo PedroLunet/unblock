@@ -12,7 +12,13 @@
 	import ChainFrame from './ChainFrame.svelte';
 	import IssueNode from './IssueNode.svelte';
 	import RoundedEdge from './RoundedEdge.svelte';
-	import { EDGE_ACTIVE_COLOR, EDGE_ACTIVE_STROKE_WIDTH, edgeMarker, type BoardNode } from './graph';
+	import {
+		EDGE_ACTIVE_COLOR,
+		EDGE_ACTIVE_STROKE_WIDTH,
+		edgeMarker,
+		type BoardNode,
+		type RoundedEdgeData
+	} from './graph';
 
 	interface Props {
 		nodes: BoardNode[];
@@ -54,7 +60,10 @@
 					markerEnd: edgeMarker(EDGE_ACTIVE_COLOR)
 				};
 			}
-			return { ...edge, style: `${edge.style ?? ''} opacity: 0.25;` };
+			return {
+				...edge,
+				data: { ...(edge.data as RoundedEdgeData | undefined), dimmed: true }
+			};
 		});
 	});
 

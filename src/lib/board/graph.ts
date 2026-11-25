@@ -245,6 +245,8 @@ interface Pt {
 
 export interface RoundedEdgeData {
 	points: Pt[];
+	/** De-emphasized while another node is selected on the canvas. */
+	dimmed?: boolean;
 	[key: string]: unknown;
 }
 

@@ -8,6 +8,7 @@
 	const RADIUS = 10;
 
 	let { data, markerEnd, style }: EdgeProps = $props();
+	let dimmed = $derived((data as RoundedEdgeData | undefined)?.dimmed === true);
 
 	function roundedPath(rawPoints: Pt[]): string {
 		const points = rawPoints.filter((p, i) => {
@@ -44,5 +45,7 @@
 </script>
 
 {#if path}
-	<BaseEdge {path} {markerEnd} {style} />
+	<g opacity={dimmed ? 0.25 : 1}>
+		<BaseEdge {path} {markerEnd} {style} />
+	</g>
 {/if}
