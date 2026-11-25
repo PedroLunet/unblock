@@ -3,9 +3,11 @@ import { GithubError } from './errors';
 import type {
 	LinkedPR,
 	IssueRecord,
+	IterationInfo,
 	LoaderOptions,
 	LoaderRateInfo,
 	LoaderResult,
+	ProjectIterations,
 	ReactionType,
 	ResolvedExternals
 } from './types';
@@ -138,6 +140,18 @@ interface GqlPull {
 	author: GqlActor | null;
 }
 
+interface GqlIterationValue {
+	iterationId?: string;
+	title?: string;
+	startDate?: string;
+	duration?: number;
+}
+
+interface GqlProjectItem {
+	project: { number: number; title: string } | null;
+	fieldValues: { nodes: (GqlIterationValue | null)[] } | null;
+}
+
 interface GqlIssue {
 	id: string;
 	number: number;
@@ -157,6 +171,7 @@ interface GqlIssue {
 	reactionGroups: GqlReactionGroup[] | null;
 	blockedBy: { totalCount: number; nodes: { number: number }[] } | null;
 	closedByPullRequestsReferences: { totalCount: number; nodes: GqlPull[] } | null;
+	projectItems: { nodes: (GqlProjectItem | null)[] } | null;
 }
 
 interface GqlIssuesPage {
@@ -201,7 +216,13 @@ const PR_CORE = `
 `;
 
 const MAIN_QUERY = `
-	query RepoIssues($owner: String!, $repo: String!, $states: [IssueState!], $cursor: String) {
+	query RepoIssues(
+		$owner: String!
+		$repo: String!
+		$states: [IssueState!]
+		$cursor: String
+		$withIterations: Boolean!
+	) {
 		rateLimit { cost limit remaining resetAt }
 		repository(owner: $owner, name: $repo) {
 			nameWithOwner
@@ -219,6 +240,18 @@ const MAIN_QUERY = `
 					closedByPullRequestsReferences(includeClosedPrs: true, first: 20) {
 						totalCount
 						nodes { ${PR_CORE} }
+					}
+					projectItems(first: 20) @include(if: $withIterations) {
+						nodes {
+							project { number title }
+							fieldValues(first: 50) {
+								nodes {
+									... on ProjectV2ItemFieldIterationValue {
+										iterationId title startDate duration
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -253,6 +286,36 @@ function mapGqlPull(node: GqlPull, owner: string, repo: string): LinkedPR {
 		mergeStateUnknown: false,
 		crossRepository: !node.url.toLowerCase().startsWith(expectedUrl)
 	};
+}
+
+function mapGqlIterations(node: GqlIssue): IterationInfo[] {
+	const out: IterationInfo[] = [];
+	const seen = new Set<string>();
+	for (const item of node.projectItems?.nodes ?? []) {
+		if (!item?.project) continue;
+		for (const value of item.fieldValues?.nodes ?? []) {
+			if (
+				!value?.iterationId ||
+				!value.title ||
+				!value.startDate ||
+				typeof value.duration !== 'number'
+			) {
+				continue;
+			}
+			const key = `${item.project.number}:${value.iterationId}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			out.push({
+				id: value.iterationId,
+				title: value.title,
+				startDate: value.startDate,
+				duration: value.duration,
+				projectNumber: item.project.number,
+				projectTitle: item.project.title
+			});
+		}
+	}
+	return out;
 }
 
 function mapGqlIssue(node: GqlIssue, inScope: boolean, owner: string, repo: string): IssueRecord {
@@ -293,6 +356,7 @@ function mapGqlIssue(node: GqlIssue, inScope: boolean, owner: string, repo: stri
 					progressPercentage: node.milestone.progressPercentage
 				}
 			: null,
+		iterations: mapGqlIterations(node),
 		comments: node.comments.totalCount,
 		reactions: { total: node.reactions.totalCount, counts },
 		blockedBy: (node.blockedBy?.nodes ?? []).map((n) => ({ number: n.number, source: 'native' })),
@@ -324,10 +388,41 @@ export async function loadRepoViaGraphQL(
 	let totalCount: number | null = null;
 	let nameWithOwner: string | null = null;
 	let cursor: string | null = null;
+	let withIterations = opts.includeProjectIterations === true;
+	let iterationsRetry = false;
+	let iterationsLoaded = false;
+	let projectIterations: ProjectIterations = withIterations ? 'used' : 'no-access';
 
 	for (let page = 1; page <= MAX_PAGES; page++) {
 		ctx.progress?.(`Fetching issues via GraphQL (page ${page})…`);
-		const data: MainData = await gql<MainData>(ctx, MAIN_QUERY, { owner, repo, states, cursor });
+		let data: MainData;
+		try {
+			data = await gql<MainData>(ctx, MAIN_QUERY, {
+				owner,
+				repo,
+				states,
+				cursor,
+				withIterations
+			});
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			// A session can report the scope in its header but still be rejected;
+			// retry once without Projects instead of failing the whole board.
+			if (withIterations && !iterationsRetry && /scope|permission/i.test(message)) {
+				withIterations = false;
+				iterationsRetry = true;
+				if (!iterationsLoaded) projectIterations = 'unavailable';
+				ctx.warnings.push(
+					iterationsLoaded
+						? 'Some issues could not be checked for project iterations.'
+						: 'Project iterations could not be read. Re-authorize GitHub access to grant read:project.'
+				);
+				page -= 1;
+				continue;
+			}
+			throw err;
+		}
+		iterationsLoaded = iterationsLoaded || withIterations;
 		if (!data.repository) {
 			throw new GithubError(
 				'not-found',
@@ -429,6 +524,7 @@ export async function loadRepoViaGraphQL(
 		warnings: ctx.warnings,
 		prLinkDetection: 'GraphQL closedByPullRequestsReferences (complete, incl. manually linked PRs)',
 		nativeRelationships: 'used',
+		projectIterations,
 		resolveExternals,
 		snapshot
 	};

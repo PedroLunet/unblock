@@ -19,6 +19,15 @@ export type { GithubErrorKind } from './errors';
 export { parseRepoInput } from './input';
 export type { RepoTarget } from './input';
 export { buildSnapshot, diffRepo } from './snapshot';
+export {
+	iterationKey,
+	iterationRangeLabel,
+	iterationStatus,
+	iterationStatusLabel,
+	primaryIteration,
+	uniqueIterations
+} from './iterations';
+export type { IterationStatus } from './iterations';
 export { loadEditOptions, searchAssignableUsers, updateIssue } from './edit';
 export type { AssignableUser, EditOptions, IssueChanges, IssueUpdate } from './edit';
 export type {
@@ -48,6 +57,8 @@ export interface LoadRepoOptions {
 	scope: FetchScope;
 	/** Skip the 1-hour cache and force a refetch. */
 	refresh?: boolean;
+	/** Read GitHub Projects (v2) iterations (requires `read:project`). */
+	includeProjectIterations?: boolean;
 	progress?: (message: string) => void;
 }
 
@@ -76,14 +87,24 @@ export async function loadRepo(
 	repo: string,
 	options: LoadRepoOptions
 ): Promise<RepoData> {
-	const key = repoCacheKey(owner, repo, options.scope, options.auth);
+	const key = repoCacheKey(
+		owner,
+		repo,
+		options.scope,
+		options.auth,
+		options.includeProjectIterations
+	);
 	if (!options.refresh) {
 		const cached = readRepoCache(key);
 		if (cached) return cached;
 	}
 
 	const started = Date.now();
-	const loaderOptions = { scope: options.scope, progress: options.progress };
+	const loaderOptions = {
+		scope: options.scope,
+		includeProjectIterations: options.includeProjectIterations === true,
+		progress: options.progress
+	};
 	const loader =
 		options.auth === 'github'
 			? await loadRepoViaGraphQL(owner, repo, loaderOptions)
@@ -193,6 +214,7 @@ export async function loadRepo(
 			truncatedIssues: loader.truncated,
 			prLinkDetection: loader.prLinkDetection,
 			nativeRelationships: loader.nativeRelationships,
+			projectIterations: loader.projectIterations,
 			warnings: loader.warnings,
 			fetchDurationMs: Date.now() - started,
 			fetchedAt: new Date().toISOString(),

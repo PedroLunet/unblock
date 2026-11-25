@@ -7,9 +7,10 @@
  */
 
 import { parseRepoInput } from './input';
+import { iterationKey, primaryIteration, iterationStatus, uniqueIterations } from './iterations';
 import { closingRefsIn } from './rest';
 import { buildSnapshot, diffRepo } from './snapshot';
-import type { IssueRecord, LinkedPR, RepoData } from './types';
+import type { IssueRecord, IterationInfo, LinkedPR, RepoData } from './types';
 
 let failures = 0;
 let checks = 0;
@@ -83,6 +84,18 @@ function fixturePR(number: number, state: LinkedPR['state'], draft = false): Lin
 	};
 }
 
+function fixtureIteration(overrides: Partial<IterationInfo> = {}): IterationInfo {
+	return {
+		id: 'iteration-2',
+		title: 'Iteration 2',
+		startDate: '2026-01-05',
+		duration: 14,
+		projectNumber: 9,
+		projectTitle: 'Roadmap',
+		...overrides
+	};
+}
+
 function fixtureIssue(number: number, overrides: Partial<IssueRecord> = {}): IssueRecord {
 	return {
 		id: `I_${number}`,
@@ -98,6 +111,7 @@ function fixtureIssue(number: number, overrides: Partial<IssueRecord> = {}): Iss
 		assignees: [],
 		labels: [],
 		milestone: null,
+		iterations: [],
 		comments: 0,
 		reactions: null,
 		blockedBy: [],
@@ -128,6 +142,7 @@ function fixtureRepo(overrides: Partial<RepoData> = {}): RepoData {
 			truncatedIssues: false,
 			prLinkDetection: '',
 			nativeRelationships: 'used',
+			projectIterations: 'no-access',
 			warnings: [],
 			fetchDurationMs: 1,
 			fetchedAt: FIXED_AT,
@@ -196,6 +211,63 @@ eq('snapshot diff detects draft -> open', diff.changedPRs, [
 	{ number: 10, title: 'PR 10', from: 'draft', to: 'open' }
 ]);
 eq('snapshot diff unchanged data', diffRepo(buildSnapshot(after), after).hasChanges, false);
+
+// --- project iterations ---
+
+const iterationA = fixtureIteration();
+const iterationAOtherProject = fixtureIteration({ projectNumber: 12, projectTitle: 'Platform' });
+const iterationB = fixtureIteration({
+	id: 'iteration-3',
+	title: 'Iteration 3',
+	startDate: '2026-01-19'
+});
+const beforeStart = Date.parse('2026-01-04T12:00:00Z');
+const duringIteration = Date.parse('2026-01-10T12:00:00Z');
+const afterIteration = Date.parse('2026-01-19T00:00:00Z');
+
+eq(
+	'iteration key merges the same sprint across projects',
+	iterationKey(iterationA),
+	iterationKey(iterationAOtherProject)
+);
+eq(
+	'unique iterations merges the same sprint across projects',
+	uniqueIterations([iterationA, iterationAOtherProject]).length,
+	1
+);
+eq(
+	'iteration key distinguishes start dates',
+	iterationKey(iterationA) !== iterationKey(iterationB),
+	true
+);
+eq('iteration status before start', iterationStatus(iterationA, beforeStart), 'upcoming');
+eq('iteration status during', iterationStatus(iterationA, duringIteration), 'active');
+eq('iteration status after end (exclusive)', iterationStatus(iterationA, afterIteration), 'past');
+eq(
+	'primary iteration prefers the active sprint',
+	primaryIteration([iterationB, iterationA], duringIteration)?.title,
+	'Iteration 2'
+);
+eq(
+	'primary iteration prefers the next upcoming sprint',
+	primaryIteration([iterationB, iterationA], beforeStart)?.title,
+	'Iteration 2'
+);
+eq(
+	'primary iteration falls back to the latest past sprint',
+	primaryIteration([iterationA, iterationB], afterIteration + 40 * 86400000)?.title,
+	'Iteration 3'
+);
+
+const withoutIteration = fixtureRepo({ issues: [fixtureIssue(1)] });
+const withIteration = fixtureRepo({
+	issues: [fixtureIssue(1, { iterations: [iterationA] })]
+});
+eq(
+	'snapshot diff detects iteration changes',
+	diffRepo(buildSnapshot(withoutIteration), withIteration).updatedIssues[0]?.fields,
+	['iteration']
+);
 
 console.log(`\n${checks - failures}/${checks} checks passed`);
 if (failures > 0) {

@@ -1,3 +1,4 @@
+import { iterationKey } from './iterations';
 import type {
 	FetchScope,
 	IssueRecord,
@@ -7,7 +8,7 @@ import type {
 	RepoData
 } from './types';
 
-export const SNAPSHOT_VERSION = 1;
+export const SNAPSHOT_VERSION = 2;
 
 /** What the card chip shows for a linked PR. */
 export type PRDisplayState = LinkedPRState | 'draft';
@@ -25,6 +26,8 @@ export interface SnapshotIssue {
 	assignees: string[];
 	labels: string[];
 	milestone: string | null;
+	/** Stable iteration keys, sorted. */
+	iterations: string[];
 	/** `number:state`, sorted. */
 	linkedPRs: string[];
 	comments: number;
@@ -75,6 +78,7 @@ export type IssueUpdateField =
 	| 'assignees'
 	| 'labels'
 	| 'milestone'
+	| 'iteration'
 	| 'linkedPRs'
 	| 'comments'
 	| 'reactions'
@@ -165,6 +169,9 @@ function changedFields(before: SnapshotIssue, after: IssueRecord): IssueUpdateFi
 		fields.push('labels');
 	}
 	if (before.milestone !== (after.milestone?.title ?? null)) fields.push('milestone');
+	if (!sameStrings(before.iterations, sorted(after.iterations.map(iterationKey)))) {
+		fields.push('iteration');
+	}
 	if (
 		!sameStrings(before.linkedPRs, sorted(after.linkedPRs.map((pr) => `${pr.number}:${pr.state}`)))
 	) {
@@ -198,6 +205,7 @@ export function buildSnapshot(data: RepoData): RepoSnapshot {
 				assignees: sorted(issue.assignees.map((user) => user.login)),
 				labels: sorted(issue.labels.map((label) => `${label.name}:${label.color}`)),
 				milestone: issue.milestone?.title ?? null,
+				iterations: sorted(issue.iterations.map(iterationKey)),
 				linkedPRs: sorted(issue.linkedPRs.map((pr) => `${pr.number}:${pr.state}`)),
 				comments: issue.comments,
 				reactions: issue.reactions?.total ?? null

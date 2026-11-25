@@ -48,6 +48,23 @@ export interface MilestoneInfo {
 	progressPercentage: number;
 }
 
+/**
+ * An iteration value from a GitHub Projects (v2) Iteration field. Issues are
+ * not required to live in a project, so this is empty for most records.
+ */
+export interface IterationInfo {
+	/** GitHub's iterationId, stable within the owning project. */
+	id: string;
+	title: string;
+	/** YYYY-MM-DD. */
+	startDate: string;
+	/** Length of the iteration in days. */
+	duration: number;
+	/** Project that owns the iteration field. */
+	projectNumber: number;
+	projectTitle: string;
+}
+
 export type ReactionType =
 	'plusOne' | 'minusOne' | 'laugh' | 'hooray' | 'confused' | 'heart' | 'rocket' | 'eyes';
 
@@ -92,6 +109,8 @@ export interface IssueRecord {
 	assignees: GitHubUser[];
 	labels: LabelInfo[];
 	milestone: MilestoneInfo | null;
+	/** Iteration values from every GitHub Project this issue belongs to. */
+	iterations: IterationInfo[];
 	comments: number;
 	/** null when the API response did not include reaction data. */
 	reactions: ReactionSummary | null;
@@ -115,6 +134,14 @@ export interface DepEdge {
 
 export type NativeRelationships = 'used' | 'skipped' | 'unavailable';
 
+/**
+ * Whether project iteration data was read:
+ * - 'used': the issue query included Project iterations
+ * - 'no-access': signed out, or the OAuth token lacks `read:project`
+ * - 'unavailable': GitHub rejected the project fields despite the scope
+ */
+export type ProjectIterations = 'used' | 'no-access' | 'unavailable';
+
 export interface RepoMeta {
 	nameWithOwner: string | null;
 	scope: FetchScope;
@@ -130,6 +157,7 @@ export interface RepoMeta {
 	truncatedIssues: boolean;
 	prLinkDetection: string;
 	nativeRelationships: NativeRelationships;
+	projectIterations: ProjectIterations;
 	warnings: string[];
 	fetchDurationMs: number;
 	fetchedAt: string;
@@ -186,6 +214,7 @@ export interface LoaderResult {
 	warnings: string[];
 	prLinkDetection: string;
 	nativeRelationships: NativeRelationships;
+	projectIterations: ProjectIterations;
 	/** Resolve issue numbers referenced from text but not in the fetched set. */
 	resolveExternals: (numbers: number[]) => Promise<ResolvedExternals>;
 	/** Live counters, read again after `resolveExternals` has run. */
@@ -194,5 +223,7 @@ export interface LoaderResult {
 
 export interface LoaderOptions {
 	scope: FetchScope;
+	/** True when the session can read Projects v2 (`read:project`). */
+	includeProjectIterations?: boolean;
 	progress?: (message: string) => void;
 }

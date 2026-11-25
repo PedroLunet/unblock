@@ -297,6 +297,11 @@
 								<span class="rounded border border-neutral-400 px-1 font-bold">Unassigned</span>
 							{/if}
 							<span>{issue.milestone ? issue.milestone.title : 'no milestone'}</span>
+							<span>
+								{issue.iterations.length > 0
+									? issue.iterations.map((iteration) => iteration.title).join(', ')
+									: 'no iteration'}
+							</span>
 							{#each issue.labels as label (label.name)}
 								<span class="rounded border border-neutral-400 px-1">{label.name}</span>
 							{/each}

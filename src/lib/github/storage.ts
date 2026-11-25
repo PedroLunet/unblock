@@ -3,8 +3,8 @@ import type { RepoSnapshot } from './snapshot';
 import type { AuthMode, RepoData } from './types';
 
 const LEGACY_PAT_KEY = 'unblock:pat';
-const CACHE_PREFIX = 'unblock:repo:v4';
-const SNAPSHOT_PREFIX = 'unblock:snapshot:v1';
+const CACHE_PREFIX = 'unblock:repo:v5';
+const SNAPSHOT_PREFIX = 'unblock:snapshot:v2';
 /**
  * Reuse a cached payload for page loads and scope switches within this window.
  * The manual Refresh action always bypasses it, and the rail shows the last
@@ -24,8 +24,17 @@ export function clearLegacyPat(): void {
 
 /** --- raw repo data cache (1-hour TTL, bypassed by `refresh`) --- */
 
-export function repoCacheKey(owner: string, repo: string, scope: string, auth: AuthMode): string {
-	return `${owner.toLowerCase()}/${repo.toLowerCase()}|${scope}|${auth}`;
+export function repoCacheKey(
+	owner: string,
+	repo: string,
+	scope: string,
+	auth: AuthMode,
+	includeProjectIterations = false
+): string {
+	const key = `${owner.toLowerCase()}/${repo.toLowerCase()}|${scope}|${auth}`;
+	// Iteration data only exists when the Projects scope was available, so the
+	// two payloads must not share a cache entry.
+	return includeProjectIterations ? `${key}|projects` : key;
 }
 
 export function readRepoCache(key: string): RepoData | null {
@@ -145,7 +154,8 @@ export function clearOtherRepoEntries(
 		const isRepoEntry = key.startsWith(`${CACHE_PREFIX}:${repoKey}`);
 		const isSnapshot = key.startsWith(`${SNAPSHOT_PREFIX}:${repoKey}`);
 		if (!isRepoEntry && !isSnapshot) continue;
-		if (!key.endsWith(`|${auth}`)) continue;
+		const matchesAuth = key.endsWith(`|${auth}`) || key.includes(`|${auth}|`);
+		if (!matchesAuth) continue;
 		if (key === keepCacheKey || key === keepSnapshotKey) continue;
 		keys.push(key);
 	}

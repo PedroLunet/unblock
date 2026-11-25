@@ -242,6 +242,7 @@ function mapRestIssue(raw: RestIssue, inScope: boolean): IssueRecord {
 					}
 				}
 			: null,
+		iterations: [],
 		blockedBy: [],
 		blocks: [],
 		linkedPRs: [],
@@ -572,6 +573,7 @@ export async function loadRepoViaRest(
 		warnings: ctx.warnings,
 		prLinkDetection: `open-PR closing keywords + ${scanned} issue timelines scanned (anonymous REST)`,
 		nativeRelationships,
+		projectIterations: 'no-access',
 		resolveExternals,
 		snapshot
 	};

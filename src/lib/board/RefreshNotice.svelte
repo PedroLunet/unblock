@@ -27,6 +27,7 @@
 		assignees: 'assignees',
 		labels: 'labels',
 		milestone: 'milestone',
+		iteration: 'iteration',
 		linkedPRs: 'linked PRs',
 		comments: 'comments',
 		reactions: 'reactions',
