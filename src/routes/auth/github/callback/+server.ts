@@ -36,7 +36,16 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	try {
 		const token = await exchangeCode(code, `${url.origin}/auth/github/callback`);
 		const user = await fetchGitHubUser(token.token);
-		await writeSession(cookies, { ...user, scopes: token.scopes }, token.token);
+		await writeSession(
+			cookies,
+			{
+				login: user.login,
+				name: user.name,
+				avatarUrl: user.avatarUrl,
+				scopes: user.scopes ?? token.scopes
+			},
+			token.token
+		);
 	} catch (error) {
 		console.error('GitHub sign-in failed', error);
 		return redirectResponse(authErrorLocation(next, 'exchange_failed'));

@@ -67,3 +67,11 @@ class SessionStore {
 }
 
 export const session = new SessionStore();
+
+/**
+ * GitHub OAuth Apps grant write access through `public_repo` (public repos) or
+ * `repo` (all repos the user can reach). Without either, the app is read-only.
+ */
+export function canWriteIssues(scopes: readonly string[]): boolean {
+	return scopes.includes('repo') || scopes.includes('public_repo');
+}

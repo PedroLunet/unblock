@@ -26,6 +26,8 @@ export interface OAuthState {
 	state: string;
 	next: string;
 	privateRepos: boolean;
+	/** Ask for `public_repo`/`repo` so the app can edit issues. */
+	write: boolean;
 }
 
 export interface OAuthToken {
@@ -215,7 +217,8 @@ export function readOAuthState(cookies: Cookies): OAuthState | null {
 		return {
 			state: value.state,
 			next: safeNext(value.next),
-			privateRepos: value.privateRepos
+			privateRepos: value.privateRepos,
+			write: value.write === true
 		};
 	} catch {
 		return null;
@@ -228,7 +231,17 @@ export function clearOAuthState(cookies: Cookies): void {
 
 /** --- GitHub OAuth calls --- */
 
-export function oauthAuthorizeUrl(origin: string, state: string, privateRepos: boolean): string {
+export interface OAuthAuthorizeOptions {
+	privateRepos: boolean;
+	/** Request write access so the board can edit issues. */
+	write: boolean;
+}
+
+export function oauthAuthorizeUrl(
+	origin: string,
+	state: string,
+	options: OAuthAuthorizeOptions
+): string {
 	const config = authConfig();
 	if (!config) throw new Error('GitHub sign-in is not configured');
 	const url = new URL(GITHUB_AUTHORIZE_URL);
@@ -236,9 +249,11 @@ export function oauthAuthorizeUrl(origin: string, state: string, privateRepos: b
 	url.searchParams.set('redirect_uri', `${origin}/auth/github/callback`);
 	url.searchParams.set('state', state);
 	url.searchParams.set('allow_signup', 'true');
-	// No scope means "public data + the user's rate limit". Private repos need
-	// the broad `repo` scope; GitHub OAuth Apps have no read-only private scope.
-	if (privateRepos) url.searchParams.set('scope', 'repo');
+	// Private repos need the broad `repo` scope (GitHub OAuth Apps have no
+	// read-only private scope), which also allows writes. Public-only editing
+	// needs `public_repo`; plain reads request no scopes at all.
+	if (options.privateRepos) url.searchParams.set('scope', 'repo');
+	else if (options.write) url.searchParams.set('scope', 'public_repo');
 	return url.toString();
 }
 
@@ -276,7 +291,15 @@ export async function exchangeCode(code: string, redirectUri: string): Promise<O
 	};
 }
 
-export async function fetchGitHubUser(token: string): Promise<SessionUser> {
+export interface GitHubProfile {
+	login: string;
+	name: string | null;
+	avatarUrl: string;
+	/** Authoritative scopes from `X-OAuth-Scopes`; null when GitHub omitted the header. */
+	scopes: string[] | null;
+}
+
+export async function fetchGitHubUser(token: string): Promise<GitHubProfile> {
 	const response = await fetch(GITHUB_API_USER_URL, {
 		headers: {
 			Accept: 'application/vnd.github+json',
@@ -294,10 +317,13 @@ export async function fetchGitHubUser(token: string): Promise<SessionUser> {
 		avatar_url?: string;
 	}>();
 	if (!payload.login) throw new Error('GitHub user lookup returned no login');
+	// The token exchange omits `scope` when GitHub reuses an existing token, so
+	// read the granted scopes from the authenticated request instead.
+	const scopeHeader = response.headers.get('x-oauth-scopes');
 	return {
 		login: payload.login,
 		name: payload.name ?? null,
 		avatarUrl: payload.avatar_url ?? '',
-		scopes: []
+		scopes: scopeHeader === null ? null : scopeHeader.split(/[,\s]+/).filter(Boolean)
 	};
 }

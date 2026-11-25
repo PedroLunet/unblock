@@ -16,8 +16,9 @@ export const GET: RequestHandler = ({ url, cookies }) => {
 
 	const next = url.searchParams.get('next') ?? '/';
 	const privateRepos = url.searchParams.get('private') === '1';
+	const write = url.searchParams.get('write') === '1';
 	const state = crypto.randomUUID();
 
-	writeOAuthState(cookies, { state, next, privateRepos });
-	return redirectResponse(oauthAuthorizeUrl(url.origin, state, privateRepos));
+	writeOAuthState(cookies, { state, next, privateRepos, write });
+	return redirectResponse(oauthAuthorizeUrl(url.origin, state, { privateRepos, write }));
 };

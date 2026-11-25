@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { session } from './session.svelte';
+	import { cleanNext } from './next';
+	import { canWriteIssues, session } from './session.svelte';
 
 	interface Props {
 		/** Where GitHub should send the user after signing in. */
@@ -17,18 +18,12 @@
 	let { next, showPrivateChoice = false, showUnavailable = false, onsignout }: Props = $props();
 
 	let includePrivate = $state(false);
+	let allowEditing = $state(true);
 	let signingOut = $state(false);
-
-	// Strip stale auth-result params so a successful retry doesn't keep the error banner.
-	function cleanNext(value: string): string {
-		const url = new URL(value, 'https://unblock.invalid');
-		url.searchParams.delete('auth');
-		url.searchParams.delete('reason');
-		return url.pathname + url.search + url.hash;
-	}
 
 	let target = $derived(cleanNext(next));
 	let hasPrivateAccess = $derived(session.user?.scopes.includes('repo') ?? false);
+	let hasWriteAccess = $derived(session.user ? canWriteIssues(session.user.scopes) : false);
 
 	let authError = $derived(page.url.searchParams.get('auth') === 'error');
 	let authErrorReason = $derived(page.url.searchParams.get('reason') ?? '');
@@ -71,6 +66,26 @@
 			<span class="text-muted">
 				Signed in as <span class="font-medium text-ink">@{session.user.login}</span>
 			</span>
+			{#if hasWriteAccess}
+				<span
+					class="rounded-[5px] border border-brand/30 bg-brand/5 px-1.5 py-0.5 font-mono text-[9px] tracking-[0.04em] text-brand-deep"
+				>
+					can edit
+				</span>
+			{:else}
+				<span
+					class="rounded-[5px] border border-warm bg-canvas px-1.5 py-0.5 font-mono text-[9px] tracking-[0.04em] text-quiet"
+				>
+					read-only
+				</span>
+				<form method="GET" action={resolve('/auth/github/start')} class="inline-flex">
+					<input type="hidden" name="next" value={target} />
+					<input type="hidden" name="write" value="1" />
+					<button type="submit" class="text-xs font-medium text-brand-strong hover:underline">
+						Enable editing
+					</button>
+				</form>
+			{/if}
 			{#if hasPrivateAccess}
 				<span
 					class="rounded-[5px] border border-warm bg-canvas px-1.5 py-0.5 font-mono text-[9px] tracking-[0.04em] text-muted"
@@ -81,6 +96,9 @@
 				<form method="GET" action={resolve('/auth/github/start')} class="inline-flex">
 					<input type="hidden" name="next" value={target} />
 					<input type="hidden" name="private" value="1" />
+					{#if allowEditing}
+						<input type="hidden" name="write" value="1" />
+					{/if}
 					<button type="submit" class="text-xs font-medium text-brand-strong hover:underline">
 						Enable private repos
 					</button>
@@ -107,10 +125,21 @@
 					Include private repositories
 				</label>
 			{/if}
+			{#if includePrivate}
+				<span class="text-quiet">Editing is included with private-repository access.</span>
+			{:else}
+				<label class="flex items-center gap-1.5 text-muted">
+					<input type="checkbox" class="accent-brand" bind:checked={allowEditing} />
+					Allow editing issues
+				</label>
+			{/if}
 			<form method="GET" action={resolve('/auth/github/start')} class="inline-flex">
 				<input type="hidden" name="next" value={target} />
 				{#if includePrivate}
 					<input type="hidden" name="private" value="1" />
+				{/if}
+				{#if allowEditing && !includePrivate}
+					<input type="hidden" name="write" value="1" />
 				{/if}
 				<button
 					type="submit"
