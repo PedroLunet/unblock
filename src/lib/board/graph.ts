@@ -1,6 +1,6 @@
 import type { ElkNode } from 'elkjs/lib/elk-api';
 import { MarkerType } from '@xyflow/svelte';
-import type { Edge, Node } from '@xyflow/svelte';
+import type { Edge, EdgeMarker, Node } from '@xyflow/svelte';
 import {
 	iterationKey,
 	iterationRangeLabel,
@@ -21,6 +21,27 @@ const INDEP_GAP = 38;
 const TARGET_ASPECT = 1.9;
 /** Shape the final canvas aims for once the loose block is included. */
 const BOARD_ASPECT = 1.4;
+
+/** Neutral warm gray shared by every dependency line. */
+export const EDGE_COLOR = '#b7aea4';
+/** A touch darker than the line so the arrowhead's direction reads at fit zoom. */
+export const EDGE_HEAD_COLOR = '#a3998e';
+/** Ink, used when a card selection highlights its edges. */
+export const EDGE_ACTIVE_COLOR = '#1d1d1d';
+export const EDGE_STROKE_WIDTH = 1.5;
+export const EDGE_ACTIVE_STROKE_WIDTH = 2;
+
+/** Shared closed arrowhead. userSpaceOnUse keeps the head the same size when the line thickens on selection. */
+export function edgeMarker(color: string): EdgeMarker {
+	return {
+		type: MarkerType.ArrowClosed,
+		width: 20,
+		height: 20,
+		markerUnits: 'userSpaceOnUse',
+		strokeWidth: 1,
+		color
+	};
+}
 
 export const NO_MILESTONE = '__none__';
 export const UNASSIGNED = '__unassigned__';
@@ -563,15 +584,14 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 				x: p.x - offsetX + chainShiftX,
 				y: p.y - offsetY
 			}));
-			const color = '#b7aea4';
 			edges.push({
 				id: `edge-${edge.from}-${edge.to}`,
 				source: `issue-${edge.from}`,
 				target: `issue-${edge.to}`,
 				type: 'rounded',
 				data: { points } satisfies RoundedEdgeData,
-				markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color },
-				style: `stroke: ${color}; stroke-width: 1.5;`
+				markerEnd: edgeMarker(EDGE_HEAD_COLOR),
+				style: `stroke: ${EDGE_COLOR}; stroke-width: ${EDGE_STROKE_WIDTH};`
 			});
 		}
 	});

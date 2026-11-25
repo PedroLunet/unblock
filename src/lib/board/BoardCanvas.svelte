@@ -3,7 +3,6 @@
 		Background,
 		BackgroundVariant,
 		Controls,
-		MarkerType,
 		MiniMap,
 		Panel,
 		SvelteFlow,
@@ -13,7 +12,7 @@
 	import ChainFrame from './ChainFrame.svelte';
 	import IssueNode from './IssueNode.svelte';
 	import RoundedEdge from './RoundedEdge.svelte';
-	import type { BoardNode } from './graph';
+	import { EDGE_ACTIVE_COLOR, EDGE_ACTIVE_STROKE_WIDTH, edgeMarker, type BoardNode } from './graph';
 
 	interface Props {
 		nodes: BoardNode[];
@@ -51,13 +50,8 @@
 			if (connected) {
 				return {
 					...edge,
-					style: 'stroke: #1d1d1d; stroke-width: 2;',
-					markerEnd: {
-						type: MarkerType.ArrowClosed,
-						width: 16,
-						height: 16,
-						color: '#1d1d1d'
-					}
+					style: `stroke: ${EDGE_ACTIVE_COLOR}; stroke-width: ${EDGE_ACTIVE_STROKE_WIDTH};`,
+					markerEnd: edgeMarker(EDGE_ACTIVE_COLOR)
 				};
 			}
 			return { ...edge, style: `${edge.style ?? ''} opacity: 0.25;` };
