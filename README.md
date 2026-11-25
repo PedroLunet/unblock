@@ -44,7 +44,9 @@ they exist, which drowns out real diagnostics. Also run `bun run gen` after a
   native-relationship data, and private repos if you also grant the `repo`
   scope. Public-only editing asks for `public_repo` (requested when "Allow
   editing issues" is checked, or when you click **Enable editing**); read-only
-  sign-in still requests no scopes at all. GitHub OAuth Apps do not offer a
+  sign-in still requests no scopes at all. **Project iterations** are a separate
+  opt-in that asks for `read:project` (the "Show project iterations" checkbox or
+  the filter's **Enable iterations** action). GitHub OAuth Apps do not offer a
   read-only private-repo scope, so private access is the broad all-or-nothing
   `repo` scope, which also permits writes.
 
@@ -111,13 +113,34 @@ parsed — real repositories showed stale prose producing false and reversed
 edges. Repositories that don't use the Relationships attribute simply show no
 dependency edges (the board says so).
 
+## Project iterations
+
+Issues that live in a GitHub Project (v2) can carry an **Iteration** field.
+unblock reads the iteration values from every project item attached to an issue
+(auto-detected; multiple projects are merged by title and date range):
+
+- The rail's **Iteration** filter lists each sprint with its date range, plus
+  **No iteration**. Selecting one narrows the canvas to that sprint.
+- When the filter is **All iterations**, cards carry a small iteration sticker
+  on their top-right corner (outside the card's content flow); an issue that
+  belongs to several projects gets a `+N` marker.
+- Filtering to one iteration hides the now-redundant sticker. The detail drawer
+  always lists every iteration.
+
+Iteration data is read-only and requires GitHub Projects read access
+(`read:project`). Anonymous visitors and sessions without that scope get a
+**Sign in** / **Enable iterations** action in the filter. Re-authorizing only
+adds that scope; it preserves existing editing and private-repository access.
+Plain issue browsing and editing still work without it.
+
 ## Layout
 
 - `src/lib/github/` — the data layer: input parsing, native relationship
   mapping, REST (anonymous) and GraphQL (signed-in, via the server proxy)
-  loaders, issue edits (`edit.ts`: assignable users, labels, milestones, the
-  partial update mutation), the localStorage cache (1-hour TTL), the compact
-  refresh snapshot and diff, and the orchestrator.
+  loaders, project-iteration extraction, issue edits (`edit.ts`: assignable
+  users, labels, milestones, the partial update mutation), the localStorage
+  cache (1-hour TTL), the compact refresh snapshot and diff, and the
+  orchestrator.
 - `src/lib/server/auth.ts` and `src/routes/auth/` — GitHub OAuth, encrypted
   session cookie, the GraphQL proxy, and write-scope opt-in.
 - `src/lib/board/` — the canvas: `graph.ts` (ELK layout + routing, chain
