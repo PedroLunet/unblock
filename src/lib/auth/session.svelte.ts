@@ -75,3 +75,8 @@ export const session = new SessionStore();
 export function canWriteIssues(scopes: readonly string[]): boolean {
 	return scopes.includes('repo') || scopes.includes('public_repo');
 }
+
+/** Projects v2 (and therefore iteration fields) need a project read scope. */
+export function canReadProjects(scopes: readonly string[]): boolean {
+	return scopes.includes('read:project') || scopes.includes('project');
+}

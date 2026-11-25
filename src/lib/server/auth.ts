@@ -28,6 +28,8 @@ export interface OAuthState {
 	privateRepos: boolean;
 	/** Ask for `public_repo`/`repo` so the app can edit issues. */
 	write: boolean;
+	/** Ask for `read:project` so iteration fields can be read. */
+	projects: boolean;
 }
 
 export interface OAuthToken {
@@ -218,7 +220,8 @@ export function readOAuthState(cookies: Cookies): OAuthState | null {
 			state: value.state,
 			next: safeNext(value.next),
 			privateRepos: value.privateRepos,
-			write: value.write === true
+			write: value.write === true,
+			projects: value.projects === true
 		};
 	} catch {
 		return null;
@@ -235,6 +238,8 @@ export interface OAuthAuthorizeOptions {
 	privateRepos: boolean;
 	/** Request write access so the board can edit issues. */
 	write: boolean;
+	/** Request read access to Projects v2 iteration fields. */
+	projects: boolean;
 }
 
 export function oauthAuthorizeUrl(
@@ -251,9 +256,13 @@ export function oauthAuthorizeUrl(
 	url.searchParams.set('allow_signup', 'true');
 	// Private repos need the broad `repo` scope (GitHub OAuth Apps have no
 	// read-only private scope), which also allows writes. Public-only editing
-	// needs `public_repo`; plain reads request no scopes at all.
-	if (options.privateRepos) url.searchParams.set('scope', 'repo');
-	else if (options.write) url.searchParams.set('scope', 'public_repo');
+	// needs `public_repo`; plain reads request no scopes at all. Project
+	// iterations are independent and need `read:project`.
+	const scopes: string[] = [];
+	if (options.privateRepos) scopes.push('repo');
+	else if (options.write) scopes.push('public_repo');
+	if (options.projects) scopes.push('read:project');
+	if (scopes.length > 0) url.searchParams.set('scope', scopes.join(' '));
 	return url.toString();
 }
 
