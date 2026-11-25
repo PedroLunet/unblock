@@ -407,9 +407,8 @@
 	@media (hover: hover) and (pointer: fine) {
 		.issue-card:hover {
 			box-shadow:
-				0 10px 24px -12px rgb(16 16 16 / 0.22),
-				0 2px 4px -2px rgb(16 16 16 / 0.06);
-			transform: translateY(-1px);
+				0 0 0 5px color-mix(in srgb, var(--card-border) 30%, transparent),
+				0 2px 8px -4px rgb(16 16 16 / 0.18);
 		}
 
 		.issue-card[data-tone='assigned']:hover {
@@ -423,6 +422,11 @@
 		.issue-card[data-tone='unassigned']:hover,
 		.issue-card[data-tone='closed']:hover {
 			--card-border: #c9bcb0;
+		}
+
+		/* Selection already has the strongest outline; don't stack a second ring. */
+		.issue-card.issue-card-selected:hover {
+			box-shadow: 0 1px 2px rgb(16 16 16 / 0.04);
 		}
 	}
 
