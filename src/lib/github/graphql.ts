@@ -102,21 +102,25 @@ interface GqlActor {
 }
 
 interface GqlUserNode {
+	id: string;
 	login: string;
 	url: string;
 	avatarUrl: string;
 }
 
 interface GqlLabel {
+	id: string;
 	name: string;
 	color: string;
 }
 
 interface GqlMilestone {
+	id: string;
 	number: number;
 	title: string;
 	state: 'OPEN' | 'CLOSED';
 	dueOn: string | null;
+	progressPercentage: number;
 }
 
 interface GqlReactionGroup {
@@ -135,6 +139,7 @@ interface GqlPull {
 }
 
 interface GqlIssue {
+	id: string;
 	number: number;
 	title: string;
 	url: string;
@@ -180,12 +185,12 @@ const REACTION_CONTENT: Record<string, ReactionType> = {
 };
 
 const ISSUE_CORE = `
-	number title url state body
+	id number title url state body
 	createdAt updatedAt closedAt
 	author { login }
-	assignees(first: 10) { nodes { login url avatarUrl } }
-	labels(first: 20) { nodes { name color } }
-	milestone { number title state dueOn }
+	assignees(first: 10) { nodes { id login url avatarUrl } }
+	labels(first: 100) { nodes { id name color } }
+	milestone { id number title state dueOn progressPercentage }
 	comments { totalCount }
 	reactions { totalCount }
 	reactionGroups { content users { totalCount } }
@@ -257,6 +262,7 @@ function mapGqlIssue(node: GqlIssue, inScope: boolean, owner: string, repo: stri
 		if (key) counts[key] = group.users.totalCount;
 	}
 	return {
+		id: node.id,
 		number: node.number,
 		title: node.title,
 		state: node.state === 'OPEN' ? 'open' : 'closed',
@@ -267,17 +273,24 @@ function mapGqlIssue(node: GqlIssue, inScope: boolean, owner: string, repo: stri
 		updatedAt: node.updatedAt,
 		closedAt: node.closedAt,
 		assignees: (node.assignees?.nodes ?? []).map((u) => ({
+			id: u.id,
 			login: u.login,
 			url: u.url,
 			avatarUrl: u.avatarUrl
 		})),
-		labels: (node.labels?.nodes ?? []).map((l) => ({ name: l.name, color: l.color })),
+		labels: (node.labels?.nodes ?? []).map((l) => ({
+			id: l.id,
+			name: l.name,
+			color: l.color
+		})),
 		milestone: node.milestone
 			? {
+					id: node.milestone.id,
 					number: node.milestone.number,
 					title: node.milestone.title,
 					state: node.milestone.state === 'OPEN' ? 'open' : 'closed',
-					dueOn: node.milestone.dueOn
+					dueOn: node.milestone.dueOn,
+					progressPercentage: node.milestone.progressPercentage
 				}
 			: null,
 		comments: node.comments.totalCount,

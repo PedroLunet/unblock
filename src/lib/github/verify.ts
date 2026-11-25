@@ -85,6 +85,7 @@ function fixturePR(number: number, state: LinkedPR['state'], draft = false): Lin
 
 function fixtureIssue(number: number, overrides: Partial<IssueRecord> = {}): IssueRecord {
 	return {
+		id: `I_${number}`,
 		number,
 		title: `Issue ${number}`,
 		state: 'open',

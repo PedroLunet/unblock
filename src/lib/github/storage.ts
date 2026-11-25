@@ -3,7 +3,7 @@ import type { RepoSnapshot } from './snapshot';
 import type { AuthMode, RepoData } from './types';
 
 const LEGACY_PAT_KEY = 'unblock:pat';
-const CACHE_PREFIX = 'unblock:repo:v2';
+const CACHE_PREFIX = 'unblock:repo:v4';
 const SNAPSHOT_PREFIX = 'unblock:snapshot:v1';
 /**
  * Reuse a cached payload for page loads and scope switches within this window.
@@ -119,6 +119,35 @@ export function clearRepoCache(): void {
 		if (key && (key.startsWith('unblock:repo:') || key.startsWith('unblock:snapshot:'))) {
 			keys.push(key);
 		}
+	}
+	for (const key of keys) localStorage.removeItem(key);
+}
+
+/**
+ * After an edit, other scope variants of the same repo are stale. Drop them
+ * (keeping the current key, which the caller just rewrote) so switching scope
+ * refetches instead of showing pre-edit data.
+ */
+export function clearOtherRepoEntries(
+	owner: string,
+	repo: string,
+	auth: AuthMode,
+	keepKey: string
+): void {
+	if (!available()) return;
+	const repoKey = `${owner.toLowerCase()}/${repo.toLowerCase()}|`;
+	const keepCacheKey = `${CACHE_PREFIX}:${keepKey}`;
+	const keepSnapshotKey = `${SNAPSHOT_PREFIX}:${keepKey}`;
+	const keys: string[] = [];
+	for (let i = 0; i < localStorage.length; i++) {
+		const key = localStorage.key(i);
+		if (!key) continue;
+		const isRepoEntry = key.startsWith(`${CACHE_PREFIX}:${repoKey}`);
+		const isSnapshot = key.startsWith(`${SNAPSHOT_PREFIX}:${repoKey}`);
+		if (!isRepoEntry && !isSnapshot) continue;
+		if (!key.endsWith(`|${auth}`)) continue;
+		if (key === keepCacheKey || key === keepSnapshotKey) continue;
+		keys.push(key);
 	}
 	for (const key of keys) localStorage.removeItem(key);
 }

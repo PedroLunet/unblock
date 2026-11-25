@@ -19,6 +19,8 @@ export type { GithubErrorKind } from './errors';
 export { parseRepoInput } from './input';
 export type { RepoTarget } from './input';
 export { buildSnapshot, diffRepo } from './snapshot';
+export { loadEditOptions, searchAssignableUsers, updateIssue } from './edit';
+export type { AssignableUser, EditOptions, IssueChanges, IssueUpdate } from './edit';
 export type {
 	DiffEdge,
 	DiffIssue,
@@ -31,7 +33,14 @@ export type {
 	SnapshotIssue,
 	SnapshotPullRequest
 } from './snapshot';
-export { clearLegacyPat, readSnapshot, repoCacheKey, writeSnapshot } from './storage';
+export {
+	clearLegacyPat,
+	clearOtherRepoEntries,
+	readSnapshot,
+	repoCacheKey,
+	writeRepoCache,
+	writeSnapshot
+} from './storage';
 
 export interface LoadRepoOptions {
 	/** Signed-in requests use GraphQL via the server proxy; anonymous uses REST. */

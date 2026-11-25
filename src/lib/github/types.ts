@@ -23,21 +23,29 @@ export type DepSource = 'text' | 'tasklist' | 'native';
 export type PRScan = 'full' | 'bodies-only' | 'none';
 
 export interface GitHubUser {
+	/** GraphQL node ID; empty for records that never came from GraphQL. */
+	id: string;
 	login: string;
 	url: string;
 	avatarUrl: string;
 }
 
 export interface LabelInfo {
+	/** GraphQL node ID; empty for records that never came from GraphQL. */
+	id: string;
 	name: string;
 	color: string;
 }
 
 export interface MilestoneInfo {
+	/** GraphQL node ID; empty for records that never came from GraphQL. */
+	id: string;
 	number: number;
 	title: string;
 	state: 'open' | 'closed';
 	dueOn: string | null;
+	/** 0–100; GitHub's own completion percentage. */
+	progressPercentage: number;
 }
 
 export type ReactionType =
@@ -70,6 +78,8 @@ export interface DependencyRef {
 }
 
 export interface IssueRecord {
+	/** GraphQL node ID, needed for mutations; empty for anonymous REST records. */
+	id: string;
 	number: number;
 	title: string;
 	state: IssueState;

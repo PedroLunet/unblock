@@ -105,21 +105,26 @@ function outOfBudget(ctx: RestCtx): boolean {
 // --- REST payload shapes (only what we read) ---
 
 interface RestUser {
+	node_id?: string;
 	login: string;
 	html_url: string;
 	avatar_url: string;
 }
 
 interface RestLabel {
+	node_id?: string;
 	name: string;
 	color: string | null;
 }
 
 interface RestMilestone {
+	node_id?: string;
 	number: number;
 	title: string;
 	state: 'open' | 'closed';
 	due_on: string | null;
+	open_issues?: number;
+	closed_issues?: number;
 }
 
 interface RestReactions {
@@ -135,6 +140,7 @@ interface RestReactions {
 }
 
 interface RestIssue {
+	node_id?: string;
 	number: number;
 	title: string;
 	state: 'open' | 'closed';
@@ -180,8 +186,16 @@ interface RestPull {
 
 // --- mappers ---
 
+function milestoneProgress(milestone: RestMilestone): number {
+	const open = milestone.open_issues ?? 0;
+	const closed = milestone.closed_issues ?? 0;
+	const total = open + closed;
+	return total > 0 ? Math.round((closed / total) * 100) : 0;
+}
+
 function mapRestIssue(raw: RestIssue, inScope: boolean): IssueRecord {
 	return {
+		id: raw.node_id ?? '',
 		number: raw.number,
 		title: raw.title,
 		state: raw.state,
@@ -192,19 +206,24 @@ function mapRestIssue(raw: RestIssue, inScope: boolean): IssueRecord {
 		updatedAt: raw.updated_at,
 		closedAt: raw.closed_at,
 		assignees: (raw.assignees ?? []).map((u) => ({
+			id: u.node_id ?? '',
 			login: u.login,
 			url: u.html_url,
 			avatarUrl: u.avatar_url
 		})),
 		labels: raw.labels.map((l) =>
-			typeof l === 'string' ? { name: l, color: '' } : { name: l.name, color: l.color ?? '' }
+			typeof l === 'string'
+				? { id: '', name: l, color: '' }
+				: { id: l.node_id ?? '', name: l.name, color: l.color ?? '' }
 		),
 		milestone: raw.milestone
 			? {
+					id: raw.milestone.node_id ?? '',
 					number: raw.milestone.number,
 					title: raw.milestone.title,
 					state: raw.milestone.state,
-					dueOn: raw.milestone.due_on
+					dueOn: raw.milestone.due_on,
+					progressPercentage: milestoneProgress(raw.milestone)
 				}
 			: null,
 		comments: raw.comments,
