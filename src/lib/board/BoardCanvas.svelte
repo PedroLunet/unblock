@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import {
 		Background,
 		BackgroundVariant,
@@ -78,6 +79,8 @@
 		}
 	}
 
+	onDestroy(cancelFit);
+
 	export function fitView(): void {
 		cancelFit();
 		fitFrame = requestAnimationFrame(() => {
@@ -121,10 +124,6 @@
 		focusIssue(issueNumber);
 		onissueclick(issueNumber);
 	}
-
-	$effect(() => {
-		return () => cancelFit();
-	});
 </script>
 
 <div class="board-surface h-full w-full">
