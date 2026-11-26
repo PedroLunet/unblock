@@ -2,16 +2,15 @@
 	import type { IssueRecord, IterationInfo, LinkedPR } from '#lib/github';
 	import { iterationRangeLabel, iterationStatusLabel } from '#lib/github';
 	import {
-		BADGES_HEIGHT,
 		CARD_BORDER,
 		CARD_GAP,
+		CARD_HEIGHT,
 		CARD_PAD,
+		FOOTER_HEIGHT,
 		HEADER_HEIGHT,
 		LABELS_HEIGHT,
-		META_HEIGHT,
 		MILESTONE_HEIGHT,
-		TITLE_LINE_HEIGHT,
-		cardRows
+		TITLE_LINE_HEIGHT
 	} from './card-metrics';
 
 	interface Props {
@@ -45,8 +44,6 @@
 	let extraAssignees = $derived(issue.assignees.length - visibleAssignees.length);
 	let assigneeNames = $derived(issue.assignees.map((assignee) => '@' + assignee.login).join(', '));
 
-	let rows = $derived(cardRows(issue));
-	let titleLines = $derived(rows.titleLines);
 	let iterationRange = $derived(iteration ? iterationRangeLabel(iteration) : '');
 	let iterationTooltip = $derived(
 		iteration
@@ -105,11 +102,11 @@
 
 <div
 	class={[
-		'issue-card relative flex h-full w-full flex-col rounded-2xl border bg-paper text-ink',
+		'issue-card relative flex w-full flex-col rounded-2xl border bg-paper text-ink',
 		{ 'issue-card-selected': selected }
 	]}
 	data-tone={tone}
-	style={`gap: ${CARD_GAP}px; padding: ${CARD_PAD}px; border-width: ${CARD_BORDER}px; --card-border-width: ${CARD_BORDER}px;`}
+	style={`height: ${CARD_HEIGHT}px; gap: ${CARD_GAP}px; padding: ${CARD_PAD}px; border-width: ${CARD_BORDER}px; --card-border-width: ${CARD_BORDER}px;`}
 >
 	<header class="flex shrink-0 items-center gap-2" style={`height: ${HEADER_HEIGHT}px`}>
 		<span class="font-mono text-[11px] leading-none text-quiet tabular-nums">
@@ -123,9 +120,9 @@
 			</span>
 		{/if}
 
-		<div class="ml-auto flex min-w-0 items-center gap-1.5">
+		<div class="ml-auto flex min-w-0 items-center gap-2">
 			{#if issue.assignees.length === 0}
-				<span class="shrink-0 text-[10.5px] leading-none font-medium text-muted"> Unassigned </span>
+				<span class="shrink-0 text-[10.5px] leading-none font-medium text-quiet"> Unassigned </span>
 			{:else}
 				<span class="flex min-w-0 items-center gap-1.5" title={assigneeNames}>
 					<span class="flex shrink-0 -space-x-1">
@@ -149,10 +146,11 @@
 							</span>
 						{/each}
 					</span>
-					<span class="truncate text-[10.5px] leading-none font-medium text-muted">
-						{assigneeNames}
-					</span>
-					{#if extraAssignees > 0}
+					{#if issue.assignees.length === 1}
+						<span class="truncate text-[10.5px] leading-none font-medium text-muted">
+							@{issue.assignees[0].login}
+						</span>
+					{:else if extraAssignees > 0}
 						<span class="shrink-0 font-mono text-[9px] leading-none text-quiet">
 							+{extraAssignees}
 						</span>
@@ -189,118 +187,123 @@
 	</header>
 
 	<p
-		class="shrink-0 overflow-hidden text-[15px] font-semibold tracking-[-0.014em] text-ink"
-		style={`height: ${titleLines * TITLE_LINE_HEIGHT}px; line-height: ${TITLE_LINE_HEIGHT}px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${titleLines};`}
+		class="card-title line-clamp-3 overflow-hidden text-[15px] font-semibold tracking-[-0.014em] text-ink"
+		style={`line-height: ${TITLE_LINE_HEIGHT}px`}
 		title={issue.title}
 	>
 		{issue.title}
 	</p>
 
-	{#if rows.labels}
-		<div
-			class="flex shrink-0 items-center gap-1.5 overflow-hidden"
-			style={`height: ${LABELS_HEIGHT}px`}
-		>
-			{#each labels as label (label.name)}
-				<span
-					class="inline-flex h-5 max-w-[112px] shrink-0 items-center gap-1 rounded-[5px] border border-chip-line bg-chip px-1.5 text-[10.5px] leading-none font-medium text-muted"
-					style={labelStyle(label.color)}
-					title={label.name}
+	{#if labels.length > 0 || issue.milestone}
+		<div class="flex shrink-0 flex-col" style="gap: 6px">
+			{#if labels.length > 0}
+				<div
+					class="flex shrink-0 items-center gap-1.5 overflow-hidden"
+					style={`height: ${LABELS_HEIGHT}px`}
 				>
-					<span class="label-dot h-[5px] w-[5px] shrink-0 rounded-full" aria-hidden="true"></span>
-					<span class="min-w-0 truncate">{label.name}</span>
-				</span>
-			{/each}
-			{#if extraLabels > 0}
-				<span class="shrink-0 font-mono text-[9px] leading-none text-quiet">+{extraLabels}</span>
+					{#each labels as label (label.name)}
+						<span
+							class="inline-flex h-5 max-w-[112px] shrink-0 items-center gap-1 rounded-[5px] border border-chip-line bg-chip px-1.5 text-[10.5px] leading-none font-medium text-muted"
+							style={labelStyle(label.color)}
+							title={label.name}
+						>
+							<span class="label-dot h-[5px] w-[5px] shrink-0 rounded-full" aria-hidden="true"
+							></span>
+							<span class="min-w-0 truncate">{label.name}</span>
+						</span>
+					{/each}
+					{#if extraLabels > 0}
+						<span class="shrink-0 font-mono text-[9px] leading-none text-quiet">
+							+{extraLabels}
+						</span>
+					{/if}
+				</div>
+			{/if}
+
+			{#if issue.milestone}
+				<div
+					class="flex shrink-0 items-center gap-1.5 overflow-hidden"
+					style={`height: ${MILESTONE_HEIGHT}px`}
+					title={`Milestone: ${issue.milestone.title}`}
+				>
+					<svg
+						class="shrink-0 text-brand"
+						width="11"
+						height="11"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+						<line x1="4" x2="4" y1="22" y2="15" />
+					</svg>
+					<span class="truncate text-[10.5px] leading-none font-medium text-muted">
+						{issue.milestone.title}
+					</span>
+				</div>
 			{/if}
 		</div>
 	{/if}
 
-	{#if rows.milestone && issue.milestone}
-		<div
-			class="flex shrink-0 items-center gap-2 overflow-hidden text-[10.5px] leading-none"
-			style={`height: ${MILESTONE_HEIGHT}px`}
-			title={`Milestone: ${issue.milestone.title}`}
-		>
-			<svg
-				class="shrink-0 text-brand"
-				width="11"
-				height="11"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-				<line x1="4" x2="4" y1="22" y2="15" />
-			</svg>
-			<span class="truncate font-medium text-muted">{issue.milestone.title}</span>
-		</div>
-	{/if}
-
-	<div
-		class="flex shrink-0 items-center gap-2.5 overflow-hidden text-[10.5px] leading-none text-quiet"
-		style={`height: ${META_HEIGHT}px`}
+	<footer
+		class="mt-auto flex shrink-0 items-center justify-between gap-2"
+		style={`height: ${FOOTER_HEIGHT}px`}
 	>
-		<span
-			class="inline-flex shrink-0 items-center gap-1"
-			title={issue.reactions ? `${issue.reactions.total} reactions` : 'Reactions unknown'}
-		>
-			<svg
-				width="11"
-				height="11"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<path
-					d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
-				/>
-			</svg>
-			<span class="sr-only">reactions</span>
-			<span class="font-medium text-muted tabular-nums">
-				{issue.reactions ? issue.reactions.total : '?'}
-			</span>
-		</span>
+		<div class="flex min-w-0 items-center gap-1.5 overflow-hidden">
+			{#each linkedPRs as pr (pr.number)}
+				<span class="pr-chip" title={prTitle(pr)}>
+					<span class="h-1.5 w-1.5 shrink-0 rounded-full {prDotClass(pr)}" aria-hidden="true"
+					></span>
+					<span class="sr-only">{prStatus(pr)} PR</span>
+					<span class="font-mono text-[9.5px] font-medium text-muted tabular-nums">
+						#{pr.number}
+					</span>
+				</span>
+			{/each}
+			{#if extraPRs > 0}
+				<span class="shrink-0 font-mono text-[9px] leading-none text-quiet">+{extraPRs}</span>
+			{/if}
+			{#if resolvedBlockers > 0}
+				{#if linkedPRs.length > 0}
+					<span class="mx-0.5 h-2.5 w-px shrink-0 bg-line" aria-hidden="true"></span>
+				{/if}
+				<span
+					class="inline-flex shrink-0 items-center gap-1"
+					title={`${resolvedBlockers} resolved ${resolvedBlockers === 1 ? 'blocker' : 'blockers'}`}
+				>
+					<svg
+						class="shrink-0 text-quiet"
+						width="10"
+						height="10"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.4"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+						<polyline points="22 4 12 14.01 9 11.01" />
+					</svg>
+					<span class="font-mono text-[9.5px] font-medium text-muted tabular-nums">
+						{resolvedBlockers}
+					</span>
+					<span class="sr-only">
+						resolved {resolvedBlockers === 1 ? 'blocker' : 'blockers'}
+					</span>
+				</span>
+			{/if}
+		</div>
 
-		<span class="h-2.5 w-px shrink-0 bg-line" aria-hidden="true"></span>
-
-		<span
-			class="inline-flex min-w-0 items-center gap-1"
-			title={`Updated ${daysAgo === 0 ? 'today' : `${daysAgo} days ago`}`}
-		>
-			<svg
-				class="shrink-0"
-				width="11"
-				height="11"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<circle cx="12" cy="12" r="10" />
-				<polyline points="12 6 12 12 16 14" />
-			</svg>
-			<span class="sr-only">updated</span>
-			<span class="truncate font-medium text-muted">{updatedLabel}</span>
-		</span>
-
-		{#if resolvedBlockers > 0}
-			<span class="h-2.5 w-px shrink-0 bg-line" aria-hidden="true"></span>
+		<div class="flex shrink-0 items-center gap-2 text-[10.5px] leading-none text-quiet">
 			<span
-				class="inline-flex shrink-0 items-center gap-1 text-quiet"
-				title={`${resolvedBlockers} resolved ${resolvedBlockers === 1 ? 'blocker' : 'blockers'}`}
+				class="inline-flex shrink-0 items-center gap-1"
+				title={issue.reactions ? `${issue.reactions.total} reactions` : 'Reactions unknown'}
 			>
 				<svg
 					width="11"
@@ -313,40 +316,42 @@
 					stroke-linejoin="round"
 					aria-hidden="true"
 				>
-					<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-					<polyline points="22 4 12 14.01 9 11.01" />
+					<path
+						d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+					/>
 				</svg>
-				<span class="font-medium text-muted tabular-nums">{resolvedBlockers}</span>
-				resolved
-				{resolvedBlockers === 1 ? 'blocker' : 'blockers'}
-			</span>
-		{/if}
-	</div>
-
-	{#if rows.badges}
-		<div
-			class="flex shrink-0 items-center gap-1.5 overflow-hidden"
-			style={`height: ${BADGES_HEIGHT}px`}
-		>
-			{#each linkedPRs as pr (pr.number)}
-				<span
-					class="inline-flex h-5 shrink-0 items-center gap-1 rounded-[5px] border border-chip-line bg-chip px-1.5 leading-none"
-					title={prTitle(pr)}
-				>
-					<span class="h-1.5 w-1.5 rounded-full {prDotClass(pr)}" aria-hidden="true"></span>
-					<span class="font-mono text-[9.5px] font-medium tracking-[0.06em] text-muted uppercase">
-						{prStatus(pr)}
-					</span>
-					<span class="font-mono text-[10px] font-medium text-muted tabular-nums">
-						#{pr.number}
-					</span>
+				<span class="sr-only">reactions</span>
+				<span class="font-medium text-muted tabular-nums">
+					{issue.reactions ? issue.reactions.total : '?'}
 				</span>
-			{/each}
-			{#if extraPRs > 0}
-				<span class="shrink-0 font-mono text-[9px] leading-none text-quiet">+{extraPRs}</span>
-			{/if}
+			</span>
+
+			<span class="h-2.5 w-px shrink-0 bg-line" aria-hidden="true"></span>
+
+			<span
+				class="inline-flex min-w-0 items-center gap-1"
+				title={`Updated ${daysAgo === 0 ? 'today' : `${daysAgo} days ago`}`}
+			>
+				<svg
+					class="shrink-0"
+					width="11"
+					height="11"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<circle cx="12" cy="12" r="10" />
+					<polyline points="12 6 12 12 16 14" />
+				</svg>
+				<span class="sr-only">updated</span>
+				<span class="truncate font-medium text-muted">{updatedLabel}</span>
+			</span>
 		</div>
-	{/if}
+	</footer>
 
 	{#if showIteration && iteration}
 		<span class="iteration-sticker" title={iterationTooltip}>
@@ -379,7 +384,9 @@
 	.issue-card {
 		--card-border: var(--color-warm);
 		border-color: var(--card-border);
-		box-shadow: 0 1px 2px rgb(16 16 16 / 0.04);
+		box-shadow:
+			0 1px 2px rgb(16 16 16 / 0.04),
+			0 1px 0 rgb(255 255 255 / 0.65) inset;
 		cursor: pointer;
 		transition:
 			box-shadow 160ms ease-out,
@@ -399,6 +406,25 @@
 		--card-border: var(--color-warm);
 	}
 
+	.issue-card[data-tone='closed'] .card-title {
+		color: var(--color-muted);
+	}
+
+	/* A hairline anchors the pinned footer without adding a layout row. */
+	.issue-card footer {
+		position: relative;
+	}
+
+	.issue-card footer::before {
+		content: '';
+		position: absolute;
+		top: -8px;
+		right: 0;
+		left: 0;
+		height: 1px;
+		background: var(--color-line);
+	}
+
 	/*
 	 * Chromium can square off the corners of an outline on a card inside the
 	 * flow's transformed viewport. A border on a pseudo-element is painted as
@@ -413,7 +439,7 @@
 		position: absolute;
 		/* Ring stroke sits 2px outside the border box, offset from the padding box. */
 		inset: calc(-1 * (var(--card-border-width) + 3.5px));
-		border: 1.5px solid color-mix(in srgb, var(--card-border) 65%, transparent);
+		border: 2px solid color-mix(in srgb, var(--card-border) 80%, var(--color-ink));
 		border-radius: calc(1rem + 3.5px);
 		pointer-events: none;
 	}
@@ -445,13 +471,26 @@
 	}
 
 	.issue-card:active {
-		transform: translateY(0) scale(0.994);
-		transition-duration: 90ms;
+		transform: translateY(0) scale(0.99);
+		transition-duration: 100ms;
 	}
 
 	.label-dot {
 		background: color-mix(in srgb, var(--label-color) 72%, var(--color-ink));
 		box-shadow: 0 0 0 1px rgb(16 16 16 / 0.06);
+	}
+
+	.pr-chip {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		gap: 4px;
+		height: 18px;
+		padding: 0 5px;
+		border: 1px solid var(--color-chip-line);
+		border-radius: 5px;
+		background: var(--color-chip);
+		white-space: nowrap;
 	}
 
 	.blocked-badge {

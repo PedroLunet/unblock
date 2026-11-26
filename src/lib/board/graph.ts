@@ -10,7 +10,7 @@ import {
 	uniqueIterations
 } from '#lib/github';
 import type { DepEdge, IssueRecord, IterationInfo, RepoData } from '#lib/github';
-import { CARD_WIDTH, cardRows, estimateCardHeight } from './card-metrics';
+import { CARD_HEIGHT, CARD_WIDTH } from './card-metrics';
 import { FRAME_HEADER_HEIGHT } from './frame-metrics';
 
 const FRAME_PAD = 26;
@@ -432,10 +432,7 @@ export async function buildBoard(data: RepoData, filters: BoardFilters): Promise
 	for (const issue of visible) {
 		const flowData = issueData(issue);
 		dataByNumber.set(issue.number, flowData);
-		sizes.set(issue.number, {
-			width: CARD_WIDTH,
-			height: estimateCardHeight(cardRows(issue))
-		});
+		sizes.set(issue.number, { width: CARD_WIDTH, height: CARD_HEIGHT });
 	}
 	const chains = components.filter((group) => group.length > 1);
 	const singles = components.filter((group) => group.length === 1).map((group) => group[0]);
