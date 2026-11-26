@@ -216,10 +216,6 @@
 	}
 
 	function popIn(node: Element, params: PopParams): TransitionConfig {
-		if (node instanceof HTMLElement) {
-			node.style.transformOrigin = params.mobile ? 'center bottom' : 'left center';
-		}
-
 		return {
 			duration: motion.current ? 0 : params.mobile ? 240 : 160,
 			easing: cubicOut,
@@ -231,10 +227,6 @@
 	}
 
 	function popOut(node: Element, params: PopParams): TransitionConfig {
-		if (node instanceof HTMLElement) {
-			node.style.transformOrigin = params.mobile ? 'center bottom' : 'left center';
-		}
-
 		return {
 			duration: motion.current ? 0 : params.mobile ? 170 : 110,
 			easing: cubicOut,
@@ -323,6 +315,14 @@
 			Math.min(centeredTop, viewportHeight - height - VIEWPORT_PAD)
 		);
 
+		// Keep the scale origin on the trigger even when the window edge clamps
+		// the menu away from it, so the popover still grows out of its control.
+		const originY = Math.max(
+			8,
+			Math.min(triggerRect.top + triggerRect.height / 2 - top, height - 8)
+		);
+		menuEl.style.setProperty('--menu-origin-y', `${Math.round(originY)}px`);
+
 		menuStyle = `left:${Math.round(left)}px;top:${Math.round(top)}px;`;
 	}
 
@@ -406,6 +406,18 @@
 			if (!mobile) positionMenu();
 			menuEl.focus({ preventScroll: true });
 		});
+	});
+
+	// Menus can grow after opening (session and iteration data arrive
+	// asynchronously). Re-anchor on resize so a clamped menu cannot slide past
+	// the bottom edge of the window.
+	$effect(() => {
+		const el = menuEl;
+		if (!el || isMobile) return;
+
+		const observer = new ResizeObserver(() => positionMenu());
+		observer.observe(el);
+		return () => observer.disconnect();
 	});
 </script>
 
@@ -1593,6 +1605,7 @@
 	.rail-menu-anchor.is-sheet .rail-menu {
 		width: 100%;
 		max-height: min(78dvh, 620px);
+		transform-origin: center bottom;
 	}
 
 	.rail-menu {
@@ -1610,7 +1623,8 @@
 			inset 0 1px 0 rgb(255 255 255 / 0.7);
 		-webkit-backdrop-filter: blur(24px) saturate(1.3);
 		backdrop-filter: blur(24px) saturate(1.3);
-		transform-origin: left center;
+		/* positionMenu sets this to the trigger's offset inside the menu. */
+		transform-origin: left var(--menu-origin-y, 50%);
 		outline: none;
 	}
 
