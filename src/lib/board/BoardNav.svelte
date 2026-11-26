@@ -1210,7 +1210,9 @@
 		display: flex;
 		align-items: center;
 		overflow: hidden;
-		color: var(--color-industrial);
+		/* Pure industrial orange is only 2.8:1 on paper; darken it toward ink
+		   so the 9.5px label clears AA without losing the warm accent. */
+		color: color-mix(in oklab, var(--color-industrial) 72%, var(--color-ink));
 		font-family: var(--font-mono);
 		font-size: 9.5px;
 		font-weight: 600;
