@@ -1118,11 +1118,13 @@
 		box-shadow:
 			0 24px 56px -34px rgb(29 29 29 / 0.36),
 			0 8px 20px -14px rgb(29 29 29 / 0.14);
-		transition: width 260ms var(--rail-ease);
+		/* Exit snappier than entry: collapsing should feel immediate. */
+		transition: width 200ms var(--rail-ease);
 	}
 
 	.rail.is-expanded {
 		width: min(268px, calc(100vw - max(12px, env(safe-area-inset-left, 0px)) - 12px));
+		transition-duration: 260ms;
 	}
 
 	/* The paper panel is the top layer. It ends above the dock, overlapping
@@ -1383,11 +1385,12 @@
 	   panel opens, mirroring the sidebar state. */
 	.panel-icon-bar {
 		transform: translateX(7px);
-		transition: transform 260ms var(--rail-ease);
+		transition: transform 200ms var(--rail-ease);
 	}
 
 	.rail.is-expanded .panel-icon-bar {
 		transform: none;
+		transition-duration: 260ms;
 	}
 
 	.rail-copy {
@@ -2183,11 +2186,12 @@
 			visibility: visible;
 			pointer-events: auto;
 			transform: none;
-			transition: grid-template-rows 260ms var(--rail-ease);
+			transition: grid-template-rows 200ms var(--rail-ease);
 		}
 
 		.rail.is-expanded .rail-sections {
 			grid-template-rows: 1fr;
+			transition-duration: 260ms;
 		}
 
 		.rail-sections-inner {
@@ -2275,6 +2279,13 @@
 		.menu-option,
 		.menu-close,
 		.rail-item::after {
+			transition-duration: 0ms;
+		}
+
+		/* The expanded-state rules set longer enter durations at a higher
+		   specificity; hold them at zero here too. */
+		.rail.is-expanded .panel-icon-bar,
+		.rail.is-expanded .rail-sections {
 			transition-duration: 0ms;
 		}
 
