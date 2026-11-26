@@ -109,7 +109,7 @@
 		{ 'issue-card-selected': selected }
 	]}
 	data-tone={tone}
-	style={`gap: ${CARD_GAP}px; padding: ${CARD_PAD}px; border-width: ${CARD_BORDER}px;`}
+	style={`gap: ${CARD_GAP}px; padding: ${CARD_PAD}px; border-width: ${CARD_BORDER}px; --card-border-width: ${CARD_BORDER}px;`}
 >
 	<header class="flex shrink-0 items-center gap-2" style={`height: ${HEADER_HEIGHT}px`}>
 		<span class="font-mono text-[11px] leading-none text-quiet tabular-nums">
@@ -399,9 +399,23 @@
 		--card-border: var(--color-warm);
 	}
 
+	/*
+	 * Chromium can square off the corners of an outline on a card inside the
+	 * flow's transformed viewport. A border on a pseudo-element is painted as
+	 * part of the card's own rounded box, so the ring always follows the radius.
+	 */
 	.issue-card-selected {
-		outline: 1.5px solid color-mix(in srgb, var(--card-border) 65%, transparent);
-		outline-offset: 2px;
+		outline: none;
+	}
+
+	.issue-card-selected::after {
+		content: '';
+		position: absolute;
+		/* Ring stroke sits 2px outside the border box, offset from the padding box. */
+		inset: calc(-1 * (var(--card-border-width) + 3.5px));
+		border: 1.5px solid color-mix(in srgb, var(--card-border) 65%, transparent);
+		border-radius: calc(1rem + 3.5px);
+		pointer-events: none;
 	}
 
 	@media (hover: hover) and (pointer: fine) {
