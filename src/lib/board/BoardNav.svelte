@@ -2026,6 +2026,7 @@
 		.rail {
 			overflow-x: clip;
 			overflow-y: auto;
+			overscroll-behavior: contain;
 			scrollbar-width: none;
 		}
 
