@@ -12,6 +12,7 @@
 	} from '#lib/github';
 	import type { IssueRecord, LabelInfo, MilestoneInfo } from '#lib/github';
 	import { session } from '#lib/auth/session.svelte.ts';
+	import { Issue } from 'loadsv';
 	import Icon from '#lib/ui/Icon.svelte';
 
 	interface Props {
@@ -539,6 +540,7 @@
 		popover="manual"
 		role="dialog"
 		aria-label={pickerTitle}
+		aria-busy={saving === active || loadingOptions || searching}
 		tabindex="-1"
 		style={pickerStyle}
 	>
@@ -549,7 +551,9 @@
 			{:else if active === 'labels'}
 				<span class="picker-count">{selectedLabelIds.length}</span>
 			{/if}
-			{#if saving === active}<span class="picker-saving">Saving…</span>{/if}
+			{#if saving === active}
+				<span class="picker-saving"><Issue size={10} /> Saving…</span>
+			{/if}
 			<button
 				type="button"
 				class="picker-close"
@@ -565,7 +569,10 @@
 		{/if}
 
 		{#if loadingOptions}
-			<p class="picker-note">Loading…</p>
+			<p class="picker-note picker-loading">
+				<Issue size={11} color="var(--color-brand-strong)" />
+				Loading…
+			</p>
 		{:else if optionsError}
 			<div class="picker-error-row">
 				<span>{optionsError}</span>
@@ -595,7 +602,10 @@
 					</button>
 				</div>
 			{:else if searching}
-				<p class="picker-note">Searching GitHub…</p>
+				<p class="picker-note picker-loading">
+					<Issue size={11} color="var(--color-brand-strong)" />
+					Searching GitHub…
+				</p>
 			{/if}
 			<ul class="picker-list">
 				{#each assigneeChoices as user (user.id)}
@@ -840,6 +850,9 @@
 	}
 
 	.picker-saving {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
 		margin-left: 4px;
 		color: var(--color-brand-strong);
 		font-family: var(--font-mono);
@@ -996,6 +1009,12 @@
 		font-family: var(--font-mono);
 		font-size: 9px;
 		line-height: 1.4;
+	}
+
+	.picker-loading {
+		display: flex;
+		align-items: center;
+		gap: 5px;
 	}
 
 	.picker-tag {

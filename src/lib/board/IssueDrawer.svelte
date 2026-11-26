@@ -12,6 +12,7 @@
 	import type { DependencyRef, IssueRecord, IssueUpdate, LinkedPR, RepoData } from '#lib/github';
 	import { cleanNext } from '#lib/auth/next.ts';
 	import { canWriteIssues, session } from '#lib/auth/session.svelte.ts';
+	import { Issue } from 'loadsv';
 	import Drawer from '#lib/ui/Drawer.svelte';
 	import IssueSidebar from './IssueSidebar.svelte';
 
@@ -184,8 +185,10 @@
 				type="button"
 				class="secondary-action"
 				disabled={stateSaving}
+				aria-busy={stateSaving}
 				onclick={() => void toggleState()}
 			>
+				{#if stateSaving}<Issue size={12} />{/if}
 				{stateSaving
 					? issue.state === 'open'
 						? 'Closing…'
