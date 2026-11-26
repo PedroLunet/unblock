@@ -239,13 +239,32 @@
 
 	function toggleExpanded(): void {
 		closeMenu(false);
-		expanded = !expanded;
-		if (isMobile) return;
-		try {
-			localStorage.setItem(EXPANDED_KEY, expanded ? '1' : '0');
-		} catch {
-			// Ignore storage failures (private mode, quota).
+		const next = !expanded;
+		expanded = next;
+		if (!isMobile) {
+			try {
+				localStorage.setItem(EXPANDED_KEY, next ? '1' : '0');
+			} catch {
+				// Ignore storage failures (private mode, quota).
+			}
+			return;
 		}
+		if (next) focusPanelStart();
+	}
+
+	/**
+	 * The mobile panel is a modal disclosure and its controls sit before the
+	 * toggle in the DOM. Move focus into it, or the next Tab leaves the nav
+	 * instead of reaching the controls that just appeared.
+	 */
+	function focusPanelStart(): void {
+		void tick().then(() => {
+			if (!expanded || !isMobile) return;
+			const first = railEl?.querySelector<HTMLElement>(
+				'.rail-sections-inner .rail-item:not([disabled])'
+			);
+			first?.focus({ preventScroll: true });
+		});
 	}
 
 	function toggleMenu(id: MenuId, trigger: HTMLElement): void {
@@ -787,8 +806,10 @@
 		tabindex="-1"
 		onpointerdown={(event) => {
 			event.stopPropagation();
+			const focusWasInside = railEl?.contains(document.activeElement) ?? false;
 			expanded = false;
 			closeMenu(false);
+			if (focusWasInside) controlsEl?.focus({ preventScroll: true });
 		}}
 		in:fade={{ duration: motion.current ? 0 : 180 }}
 		out:fade={{ duration: motion.current ? 0 : 140 }}
