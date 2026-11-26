@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { Issue } from 'loadsv';
 	import AuthControls from '#lib/auth/AuthControls.svelte';
 	import { session } from '#lib/auth/session.svelte.ts';
 	import { GithubError, loadRepo, parseRepoInput, resolveRef } from '#lib/github';
@@ -220,7 +221,10 @@
 		</div>
 
 		{#if loading}
-			<p class="text-sm text-neutral-500">{progressMessage || 'Loading…'}</p>
+			<p class="flex items-center gap-2 text-sm text-neutral-500">
+				<Issue size={16} />
+				{progressMessage || 'Loading…'}
+			</p>
 		{/if}
 
 		{#if loadErrorMessage}
