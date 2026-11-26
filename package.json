@@ -47,6 +47,7 @@
 		"@fontsource/dm-mono": "^5.3.0",
 		"@fontsource/dm-sans": "^5.3.0",
 		"@xyflow/svelte": "^2.0.2",
-		"elkjs": "^0.12.1"
+		"elkjs": "^0.12.1",
+		"loadsv": "^0.1.4"
 	}
 }

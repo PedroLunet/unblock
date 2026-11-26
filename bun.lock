@@ -10,6 +10,7 @@
         "@fontsource/dm-sans": "^5.3.0",
         "@xyflow/svelte": "^2.0.2",
         "elkjs": "^0.12.1",
+        "loadsv": "^0.1.4",
       },
       "devDependencies": {
         "@eslint/js": "^10.0.1",
@@ -594,6 +595,8 @@
     "lightningcss-win32-x64-msvc": ["lightningcss-win32-x64-msvc@1.33.0", "", { "os": "win32", "cpu": "x64" }, "sha512-OlEICDx/Xl0FqSp4bry8zFnCvGpig3Gl4gCquvYwHuqJKEC1+n9NgDniFvqHGmMv1ZkqDJrDqKKSykTDX+ehuA=="],
 
     "lilconfig": ["lilconfig@2.1.0", "", {}, "sha512-utWOt/GHzuUxnLKxB6dk81RoOeoNeHgbrXiuGk4yyF5qlRz+iIVWu56E2fqGHFrXz0QNUhLB/8nKqvRH66JKGQ=="],
+
+    "loadsv": ["loadsv@0.1.4", "", { "peerDependencies": { "svelte": "^5.16.0" } }, "sha512-QTIhEvyeJCHP4hQRdvrNq5pahinkmRoZLakKoakKp/j+fO0jCgrJ+7khb9vhQABIHOuaWG/y3c4yPW1lIAxxyQ=="],
 
     "locate-character": ["locate-character@3.0.0", "", {}, "sha512-SW13ws7BjaeJ6p7Q6CO2nchbYEc3X3J6WrmTTDto7yMPqVSZTUyY5Tjbid+Ab8gLnATtygYtiDIJGQRRn2ZOiA=="],
 
