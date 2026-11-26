@@ -1670,6 +1670,7 @@
 	}
 
 	.menu-close {
+		position: relative;
 		display: grid;
 		flex: none;
 		place-items: center;
@@ -1972,6 +1973,13 @@
 		.menu-close {
 			width: 34px;
 			height: 34px;
+		}
+
+		/* Keep the glyph compact while the touch target clears 44px. */
+		.menu-close::before {
+			content: '';
+			position: absolute;
+			inset: -5px;
 		}
 
 		.rail-switch {
