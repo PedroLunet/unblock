@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import type { Edge } from '@xyflow/svelte';
 	import { SvelteFlowProvider } from '@xyflow/svelte';
+	import { Issue } from 'loadsv';
 	import { buildBoard, filterOptions } from '#lib/board/graph.ts';
 	import type { BoardModel, BoardNode } from '#lib/board/graph.ts';
 	import BoardCanvas from '#lib/board/BoardCanvas.svelte';
@@ -404,9 +405,12 @@
 
 		{#if loading}
 			<div
-				class="absolute inset-0 flex items-center justify-center bg-canvas/70 text-xs text-muted backdrop-blur-sm"
+				class="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-canvas/70 px-6 text-center text-xs text-muted backdrop-blur-sm"
+				role="status"
+				aria-busy="true"
 			>
-				{progress || 'Loading…'}
+				<Issue size={40} color="var(--color-brand-strong)" />
+				<p class="max-w-sm leading-relaxed">{progress || 'Loading…'}</p>
 			</div>
 		{/if}
 

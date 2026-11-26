@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { DiffPullRequest, IssueUpdateField, RepoDiff } from '#lib/github';
+	import { Issue } from 'loadsv';
 	import Icon from '#lib/ui/Icon.svelte';
 
 	interface Props {
@@ -166,7 +167,7 @@
 
 {#if refreshing}
 	<div class="refresh-chip" role="status">
-		<span class="spinner" aria-hidden="true"></span>
+		<Issue size={12} color="var(--color-brand-strong)" />
 		<span class="chip-text">{progress || 'Checking GitHub for updates…'}</span>
 	</div>
 {:else if diff || checkedAt}
@@ -247,16 +248,6 @@
 		font-family: var(--font-mono);
 		font-size: 10px;
 		line-height: 1.3;
-	}
-
-	.spinner {
-		flex: none;
-		width: 11px;
-		height: 11px;
-		border: 1.5px solid color-mix(in oklab, var(--color-brand) 26%, transparent);
-		border-top-color: var(--color-brand-strong);
-		border-radius: 50%;
-		animation: refresh-spin 800ms linear infinite;
 	}
 
 	.chip-text {
@@ -434,22 +425,12 @@
 			animation: none;
 		}
 
-		.spinner {
-			animation: none;
-		}
-
 		.notice-close {
 			transition: none;
 		}
 
 		.notice-close:active {
 			transform: none;
-		}
-	}
-
-	@keyframes refresh-spin {
-		to {
-			transform: rotate(360deg);
 		}
 	}
 

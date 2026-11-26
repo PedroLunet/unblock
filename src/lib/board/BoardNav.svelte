@@ -4,6 +4,7 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	import { fade } from 'svelte/transition';
 	import type { TransitionConfig } from 'svelte/transition';
+	import { Issue, Ring } from 'loadsv';
 	import { resolve } from '$app/paths';
 	import AuthControls from '#lib/auth/AuthControls.svelte';
 	import { session } from '#lib/auth/session.svelte.ts';
@@ -430,7 +431,9 @@
 				<span class="brand-mark" aria-hidden="true">
 					<img src={mark} alt="" width="24" height="24" draggable="false" />
 					{#if loading}
-						<span class="loading-dot"></span>
+						<span class="brand-loading">
+							<Issue size={12} />
+						</span>
 					{/if}
 				</span>
 				<span class="rail-copy" aria-hidden={!expanded}>
@@ -593,7 +596,11 @@
 						onclick={onrefresh}
 					>
 						<span class="rail-icon">
-							<Icon name="refresh" />
+							{#if refreshing}
+								<Issue size={17} />
+							{:else}
+								<Icon name="refresh" />
+							{/if}
 						</span>
 						<span class="rail-copy" aria-hidden={!expanded}>
 							<span class="rail-label">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
@@ -638,7 +645,7 @@
 					>
 						{#if session.loading}
 							<span class="rail-icon">
-								<span class="avatar-skeleton" aria-hidden="true"></span>
+								<Ring size={17} />
 							</span>
 						{:else if session.user?.avatarUrl}
 							<img
@@ -699,7 +706,7 @@
 		>
 			{#if session.loading}
 				<span class="rail-icon">
-					<span class="avatar-skeleton" aria-hidden="true"></span>
+					<Ring size={17} />
 				</span>
 			{:else if session.user?.avatarUrl}
 				<img class="rail-avatar" src={session.user.avatarUrl} alt="" referrerpolicy="no-referrer" />
@@ -907,7 +914,10 @@
 								</button>
 							</form>
 						{:else if session.loading}
-							<p class="menu-note">Checking GitHub session…</p>
+							<p class="menu-note menu-loading">
+								<Ring size={11} />
+								Checking GitHub session…
+							</p>
 						{:else}
 							<p class="menu-note">GitHub sign-in is not configured on this deployment.</p>
 						{/if}
@@ -993,7 +1003,7 @@
 				<div class="menu-body" role="region" tabindex="0" aria-label="Board data details">
 					{#if loading}
 						<p class="menu-status">
-							<span class="status-pulse" aria-hidden="true"></span>
+							<Issue size={12} color="var(--color-brand-strong)" />
 							{progress || 'Loading repository…'}
 						</p>
 					{/if}
@@ -1233,7 +1243,7 @@
 	}
 
 	.rail-item.is-busy .rail-icon {
-		animation: rail-spin 900ms linear infinite;
+		color: var(--color-brand-strong);
 	}
 
 	.rail-item:focus-visible {
@@ -1294,10 +1304,6 @@
 		box-shadow: 0 0 0 1px rgb(255 253 250 / 0.26);
 	}
 
-	.rail-foot .avatar-skeleton {
-		background: rgb(255 253 250 / 0.14);
-	}
-
 	.rail-brand {
 		height: 42px;
 		gap: 10px;
@@ -1317,16 +1323,16 @@
 		height: 100%;
 	}
 
-	.loading-dot {
+	.brand-loading {
 		position: absolute;
-		top: -2px;
-		right: -2px;
-		width: 7px;
-		height: 7px;
+		top: -4px;
+		right: -4px;
+		display: grid;
+		place-items: center;
+		width: 16px;
+		height: 16px;
 		border-radius: 50%;
-		background: var(--color-brand-strong);
-		box-shadow: 0 0 0 2px var(--color-paper);
-		animation: rail-pulse 1.4s ease-in-out infinite;
+		background: var(--color-paper);
 	}
 
 	.rail-icon {
@@ -1502,15 +1508,6 @@
 		background: var(--color-warm);
 		object-fit: cover;
 		box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-warm) 72%, var(--color-quiet));
-	}
-
-	.avatar-skeleton {
-		display: block;
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		background: color-mix(in oklab, var(--color-warm) 70%, transparent);
-		animation: rail-pulse 1.4s ease-in-out infinite;
 	}
 
 	.rail-item[data-tip]::after {
@@ -1773,13 +1770,10 @@
 		line-height: 1.4;
 	}
 
-	.status-pulse {
-		flex: none;
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: var(--color-brand-strong);
-		animation: rail-pulse 1.4s ease-in-out infinite;
+	.menu-loading {
+		display: flex;
+		align-items: center;
+		gap: 6px;
 	}
 
 	.stats-grid {
@@ -2212,8 +2206,7 @@
 			border-color: var(--color-muted);
 		}
 
-		.rail-dot,
-		.loading-dot {
+		.rail-dot {
 			box-shadow: 0 0 0 2px var(--color-paper);
 		}
 	}
@@ -2244,31 +2237,6 @@
 		.menu-option:active,
 		.menu-close:active {
 			transform: none;
-		}
-
-		.loading-dot,
-		.status-pulse,
-		.avatar-skeleton,
-		.rail-item.is-busy .rail-icon {
-			animation: none;
-		}
-	}
-
-	@keyframes rail-spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	@keyframes rail-pulse {
-		0%,
-		100% {
-			opacity: 0.35;
-			transform: scale(0.82);
-		}
-		50% {
-			opacity: 1;
-			transform: scale(1);
 		}
 	}
 </style>
