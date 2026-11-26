@@ -90,9 +90,22 @@ a,
 	display: block;
 	padding: 0;
 	border: 0;
-	border-radius: 0;
+	border-radius: 1rem;
 	background: transparent;
+	box-shadow: none;
 	text-align: left;
+}
+
+/* xy-theme draws a square-cornered focus halo on the wrapper, and a node
+   shadow on selection. The card owns its ring, so only keyboard focus needs
+   an affordance — rounded, and skipped when the selection ring is visible. */
+.svelte-flow__node-issue:focus-visible:not(.selected),
+.svelte-flow__node-frame:focus-visible {
+	border-radius: 1rem;
+	outline: none;
+	box-shadow:
+		0 0 0 2px var(--color-paper),
+		0 0 0 3.5px color-mix(in srgb, var(--color-brand) 65%, transparent);
 }
 
 /* Svelte Flow chrome: warm paper, soft edges, no default cool grays. */
