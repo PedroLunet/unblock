@@ -410,15 +410,31 @@
 <style>
 	.issue-card {
 		--card-border: var(--color-warm);
+		--card-ease: cubic-bezier(0.23, 1, 0.32, 1);
+		--hover-ring: color-mix(in srgb, var(--card-border) 36%, transparent);
 		border-color: var(--card-border);
 		box-shadow:
 			0 1px 2px rgb(16 16 16 / 0.04),
 			0 1px 0 rgb(255 255 255 / 0.65) inset;
 		cursor: pointer;
-		transition:
-			box-shadow 160ms ease-out,
-			transform 160ms ease-out,
-			border-color 160ms ease-out;
+		/* Press feedback only: hover is an opacity-only ring below. */
+		transition: transform 160ms var(--card-ease);
+	}
+
+	/*
+	 * Hover is a separate painted layer whose opacity animates. It keeps the
+	 * state border colour stable and avoids repainting the card's shadow on
+	 * every pointer move. Exits are faster than entries.
+	 */
+	.issue-card::before {
+		content: '';
+		position: absolute;
+		inset: calc(-1 * var(--card-border-width));
+		border-radius: 1rem;
+		box-shadow: 0 0 0 5px var(--hover-ring);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 120ms var(--card-ease);
 	}
 
 	.issue-card[data-tone='assigned'] {
@@ -435,6 +451,29 @@
 
 	.issue-card[data-tone='closed'] .card-title {
 		color: var(--color-muted);
+	}
+
+	@media (prefers-contrast: more) {
+		.issue-card[data-tone='unassigned'],
+		.issue-card[data-tone='closed'] {
+			--card-border: var(--color-muted);
+		}
+
+		.issue-card[data-tone='assigned'] {
+			--card-border: var(--color-brand-deep);
+		}
+
+		.issue-card[data-tone='blocked'] {
+			--card-border: var(--color-alert-strong);
+		}
+
+		.issue-card {
+			--hover-ring: color-mix(in srgb, var(--card-border) 50%, transparent);
+		}
+
+		.issue-card footer::before {
+			background: var(--color-muted);
+		}
 	}
 
 	/* A hairline anchors the pinned footer without adding a layout row. */
@@ -472,33 +511,19 @@
 	}
 
 	@media (hover: hover) and (pointer: fine) {
-		.issue-card:hover {
-			box-shadow:
-				0 0 0 5px color-mix(in srgb, var(--card-border) 30%, transparent),
-				0 2px 8px -4px rgb(16 16 16 / 0.18);
-		}
-
-		.issue-card[data-tone='assigned']:hover {
-			--card-border: var(--color-brand-strong);
-		}
-
-		.issue-card[data-tone='blocked']:hover {
-			--card-border: #d63a3f;
-		}
-
-		.issue-card[data-tone='unassigned']:hover,
-		.issue-card[data-tone='closed']:hover {
-			--card-border: #c9bcb0;
+		.issue-card:hover::before {
+			opacity: 1;
+			transition-duration: 160ms;
 		}
 
 		/* Selection already has the strongest outline; don't stack a second ring. */
-		.issue-card.issue-card-selected:hover {
-			box-shadow: 0 1px 2px rgb(16 16 16 / 0.04);
+		.issue-card.issue-card-selected:hover::before {
+			opacity: 0;
 		}
 	}
 
 	.issue-card:active {
-		transform: translateY(0) scale(0.99);
+		transform: translateY(0) scale(0.98);
 		transition-duration: 100ms;
 	}
 
@@ -564,7 +589,8 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.issue-card {
+		.issue-card,
+		.issue-card::before {
 			transition: none;
 		}
 
