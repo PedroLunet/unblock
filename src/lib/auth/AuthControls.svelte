@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { Ring } from 'loadsv';
 	import { cleanNext } from './next';
 	import { canReadProjects, canWriteIssues, session } from './session.svelte';
 
@@ -123,14 +124,19 @@
 			{/if}
 			<button
 				type="button"
-				class="rounded-md border border-warm bg-paper px-2 py-1 text-xs text-ink hover:bg-canvas disabled:text-quiet"
+				class="inline-flex items-center gap-1.5 rounded-md border border-warm bg-paper px-2 py-1 text-xs text-ink hover:bg-canvas disabled:text-quiet"
 				disabled={signingOut}
+				aria-busy={signingOut}
 				onclick={() => void handleSignOut()}
 			>
+				{#if signingOut}<Ring size={11} />{/if}
 				{signingOut ? 'Signing out…' : 'Sign out'}
 			</button>
 		{:else if session.loading}
-			<span class="text-quiet">Checking GitHub session…</span>
+			<span class="inline-flex items-center gap-1.5 text-quiet">
+				<Ring size={12} />
+				Checking GitHub session…
+			</span>
 		{:else if !session.configured}
 			{#if showUnavailable}
 				<span class="text-quiet">GitHub sign-in is not configured on this deployment.</span>
